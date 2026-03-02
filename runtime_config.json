@@ -1,0 +1,61 @@
+{
+  "_comments": {
+    "masterQQ": "主人QQ号列表(字符串数组)，拥有各项高级指令的最高权限",
+    "nickName": "机器人的称呼/昵称，用于防触发和语境代入",
+    "activeApiIndex": "当前使用的API节点编号（对应 api_config.json 的索引，从 0 开始）",
+    "activeGroupPersonalityIndex": "当前使用的群聊人格编号（对应 group_personality.json 的索引）",
+    "activePrivatePersonalityIndex": "当前使用的私聊人格编号（对应 private_personality.json 的索引）",
+    "maxGroupMessages": "群聊时允许保留的最长历史上下文记录条数",
+    "enableMemes": "是否启用本地表情包功能 (true/false)",
+    "memesPath": "本地表情包文件夹的绝对路径或相对路径",
+    "memeProb": "触发表情包的概率 (0-1)",
+    "sleepTime": "话痨模式下，每句话之间的冷却间隔时间(ms)",
+    "randomReply": "话痨模式：满足检测条数后，触发被动插嘴回复的概率 (0-1)",
+    "messagesLength": "话痨模式：群聊每积累多少条消息检测一次是否要插嘴",
+    "forwardMaxLength": "合并转发机制：触发合并打包的总字数阈值",
+    "forwardMaxSegments": "合并转发机制：触发合并打包的分段数阈值",
+    "eachLetterCost": "模拟打字延迟：每个字等待的毫秒数",
+    "allowPrivateTalkingUsers": "允许私聊的用户ID列表（白名单）",
+    "groups": "允许机器人监听、记录和回复的群号列表",
+    "privateRefuse": "仅主人模式或非好友私聊时的拒绝回复语",
+    "singleAskSleep": "群聊中被@后的个人冷却时间(ms)",
+    "singleTalkWaiting": "私聊判定等待时间(ms，防连续多条消息吞字)",
+    "singleMaxMessages": "私聊历史消息上下文上限",
+    "groupLimits": "各群聊的12小时响应次数上限，格式为 {\"群号\": 次数}",
+    "forwardModelList": "模型列表是否以合并转发形式输出",
+    "forwardStrategy": "合并转发策略：auto(智能判断) / on(强制合并) / off(强制关闭)"
+  },
+  "masterQQ": [
+    "123456789"
+  ],
+  "nickName": "Neko",
+  "activeApiIndex": 0,
+  "activeGroupPersonalityIndex": 0,
+  "activePrivatePersonalityIndex": 0,
+  "maxGroupMessages": 20,
+  "enableMemes": true,
+  "memesPath": "plugins/koishi-plugin-Enhanced-NekoAI/neko_memes",
+  "memeProb": 0.5,
+  "sleepTime": 1000,
+  "randomReply": 0.3,
+  "messagesLength": 15,
+  "eachLetterCost": 0,
+  "allowPrivateTalkingUsers": [
+    "123456789"
+  ],
+  "groups": [
+    "100000001",
+    "100000002"
+  ],
+  "privateRefuse": "我的主人不让我和陌生人说话，当前是仅主人模式",
+  "singleAskSleep": 1000,
+  "singleTalkWaiting": 500,
+  "singleMaxMessages": 40,
+  "groupLimits": {
+    "100000002": 100
+  },
+  "forwardModelList": true,
+  "forwardStrategy": "auto",
+  "forwardMaxLength": 400,
+  "forwardMaxSegments": 4
+}

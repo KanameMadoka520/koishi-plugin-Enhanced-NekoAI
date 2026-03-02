@@ -1,0 +1,23 @@
+{
+  "name": "koishi-plugin-enhanced-nekoai",
+  "version": "1.0.0",
+  "description": "高拟人多模态 AI 聊天伴侣插件 — 原生支持 OpenAI/Anthropic/Gemini 三协议、智能路由、长期记忆、合并转发防刷屏",
+  "main": "index.js",
+  "koishi": {
+    "description": {
+      "zh": "高拟人多模态 AI 聊天伴侣插件（支持 OpenAI/Anthropic/Gemini）"
+    },
+    "service": {
+      "required": []
+    }
+  },
+  "peerDependencies": {
+    "koishi": "^4.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/KanameMadoka520/koishi-plugin-Enhanced-NekoAI"
+  },
+  "author": "KanameMadoka520",
+  "license": "Apache-2.0"
+}

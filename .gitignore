@@ -1,0 +1,51 @@
+# ============================================
+# koishi-plugin-Enhanced-NekoAI .gitignore
+# ============================================
+
+# === 敏感配置（含 API Key、QQ 号等隐私数据） ===
+.env
+.env.*
+
+# === 运行时用户数据（插件运行后自动生成） ===
+chat-history/
+memory/
+groupfriends_*.json
+group_usage_counts.json
+.backups/
+
+# === 表情包资源（用户自备，体积大） ===
+neko_memes/
+
+# === 旧版 GUI 工具（已归档） ===
+NekoAI-GUI-Manager/
+nekoai-gui/
+
+# === 旧版独立 HTML 工具 ===
+api_manager.html
+config_editor.html
+dashboard.html
+history_viewer.html
+
+# === 旧版资源目录 ===
+54条建议全部的图片/
+
+# === Node.js ===
+node_modules/
+package-lock.json
+
+# === IDE / 编辑器 ===
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# === 日志与临时文件 ===
+*.log
+*.tmp
+*.bak
+
+# === Claude Code 本地配置 ===
+.claude/

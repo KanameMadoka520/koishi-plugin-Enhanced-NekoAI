@@ -1,0 +1,44 @@
+[
+  {
+    "apiUrl": "https://api.openai.com/v1/chat/completions",
+    "apiKey": "sk-your-openai-api-key-here",
+    "modelName": "gpt-4o",
+    "remark": "OpenAI官方-GPT4o",
+    "aiType": "openai"
+  },
+  {
+    "apiUrl": "https://api.openai.com/v1/chat/completions",
+    "apiKey": "sk-your-openai-api-key-here",
+    "modelName": "gpt-4o-mini",
+    "remark": "OpenAI官方-GPT4oMini",
+    "aiType": "openai"
+  },
+  {
+    "apiUrl": "https://api.anthropic.com/v1/messages",
+    "apiKey": "sk-ant-your-anthropic-api-key-here",
+    "modelName": "claude-sonnet-4-20250514",
+    "remark": "Anthropic官方-Claude",
+    "aiType": "anthropic"
+  },
+  {
+    "apiUrl": "https://generativelanguage.googleapis.com/v1beta/chat/completions",
+    "apiKey": "your-gemini-api-key-here",
+    "modelName": "gemini-2.5-flash",
+    "remark": "Google-Gemini",
+    "aiType": "gemini"
+  },
+  {
+    "apiUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
+    "apiKey": "sk-your-aliyun-api-key-here",
+    "modelName": "qwen-plus",
+    "remark": "阿里云百炼-通义千问",
+    "aiType": "openai"
+  },
+  {
+    "apiUrl": "https://open.bigmodel.cn/api/paas/v4/chat/completions",
+    "apiKey": "your-zhipu-api-key-here",
+    "modelName": "glm-4-flash",
+    "remark": "智谱BigModel-GLM4",
+    "aiType": "openai"
+  }
+]
