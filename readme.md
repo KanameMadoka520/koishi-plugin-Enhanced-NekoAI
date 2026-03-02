@@ -209,34 +209,12 @@ plugins:
 ---
 
 ### 配套管理工具
+NekoAI-GUI-Manager
 
-本项目提供两套管理工具方案：
+NekoAI 统一可视化管理面板 — 基于 Tauri 的原生桌面应用，集成 API管理、配置编辑、人格管理、长期记忆监控、聊天历史分析、命令管理于一体。
 
-#### 方案一：Tauri 桌面应用（开发中）
-
-基于 **Tauri v1 (Rust + React + TypeScript)** 的全功能桌面管理应用，计划完全替代所有独立 HTML 工具。
-
-**已完成的后端能力：**
-* 配置文件 CRUD + 自动备份（写入前时间戳备份到 `.backups/`）
-* 记忆文件管理（列表、读取、写入、删除）
-* 历史记录读取 + 全局搜索 + CSV 导出
-* API 连通性测试（支持 OpenAI/Anthropic/Gemini 三协议）
-* 文件变更监听（notify crate）
-
-**前端页面待开发：** 概览、API 管理、配置编辑、人格管理、长期记忆、历史记录、命令管理共 7 个页面。
-
-> 详见 `HANDOFF.md` 获取完整的 GUI 项目交接文档。
-
-#### 方案二：独立 HTML 工具（已归档至 Git 历史）
-
-此前提供的三款纯前端 HTML 可视化工具（`api_manager.html`、`history_viewer.html`、`config_editor.html`）已归档至 Git 历史中。如需使用，可通过 `git checkout` 恢复：
-
-```bash
-# 恢复旧版 HTML 工具
-git checkout HEAD -- api_manager.html config_editor.html history_viewer.html
-```
-
-这三个工具基于 Vue 3 CDN 构建，零依赖、双击即用，支持深色模式、文件拖拽加载、同目录自动检测等特性。
+2026年3月3日已构建测试版，在此仓库
+https://github.com/KanameMadoka520/NekoAI-GUI-Manager
 
 ---
 
@@ -361,11 +339,6 @@ git checkout HEAD -- api_manager.html config_editor.html history_viewer.html
 * [x] 请求队列并发控制
 * [x] 优雅关闭与数据保护
 * [x] 独立 HTML 可视化管理工具（API 编辑器、历史查阅器、配置编辑器）
-
-#### 管理工具（进行中）
-
-* [x] Tauri 桌面应用 Rust 后端（配置/记忆/历史/API测试/文件监听）
-* [ ] Tauri 桌面应用前端页面（7 个功能页面待开发）
 
 #### 未来计划
 
