@@ -49,3 +49,6 @@ Thumbs.db
 
 # === Claude Code 本地配置 ===
 .claude/
+
+# === 迁移保留的 Git 元数据备份 ===
+.git-relocation-backups/

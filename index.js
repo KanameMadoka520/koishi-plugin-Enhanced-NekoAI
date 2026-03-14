@@ -11,6 +11,9 @@ const { loadAllMemory } = require('./lib/memory');
 const { loadCommandsList, loadGroupFriends } = require('./lib/utils');
 const state = require('./lib/state');
 const logger = require('./lib/logger');
+const inject = {
+  optional: ['puppeteer'],
+};
 
 function apply(ctx) {
   // 1. 加载所有配置
@@ -37,7 +40,7 @@ function apply(ctx) {
   registerCommands(ctx);
   registerListener(ctx);
 
-  logger.critical('TCY-nekoAI (模块化架构版) 已启动');
+  logger.critical('Enhanced-NekoAI (模块化架构版) 已启动');
 }
 
-module.exports = { Config, apply, name, usage };
+module.exports = { Config, apply, name, usage, inject };

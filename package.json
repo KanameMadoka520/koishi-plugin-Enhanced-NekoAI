@@ -8,10 +8,13 @@
       "zh": "高拟人多模态 AI 聊天伴侣插件（支持 OpenAI/Anthropic/Gemini）"
     },
     "service": {
-      "required": []
+      "required": [
+        "puppeteer"
+      ]
     }
   },
   "peerDependencies": {
+    "@seidko/koishi-plugin-puppeteer": "^3.5.1",
     "koishi": "^4.0.0"
   },
   "repository": {

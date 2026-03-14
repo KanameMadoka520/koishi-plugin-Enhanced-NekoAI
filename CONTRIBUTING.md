@@ -16,7 +16,7 @@
 
 ### 0. 模块化架构（最重要）
 
-**本插件已从单文件架构重构为模块化架构。** 原来 1360 行的 `index.js` 已拆分为 14 个独立模块，位于 `lib/` 目录下。新的 `index.js` 仅为约 40 行的薄壳入口文件。
+**本插件已从单文件架构重构为模块化架构。** 原来 1360 行的 `index.js` 已拆分为 15 个独立模块，位于 `lib/` 目录下。新的 `index.js` 仅为约 40 行的薄壳入口文件。
 
 ```
 lib/
@@ -33,13 +33,15 @@ lib/
 ├── memory.js       ← 长期记忆持久化（自动压缩摘要、群聊/私聊独立存储）
 ├── memes.js        ← 表情包加载（9 个情绪分类目录）
 ├── commands.js     ← 所有 45+ 聊天指令注册
-└── listener.js     ← 消息事件处理（三分支：@提及/私聊/话痨潜水）
+├── listener.js     ← 消息事件处理（三分支：@提及/私聊/话痨潜水）
+└── render.js       ← 帮助菜单 / 人格列表 / 模型列表 / 状态面板 图片卡片渲染
 ```
 
 **开发规则**：
 * **不要在 `index.js` 中添加业务逻辑**。`index.js` 只负责调用各模块的初始化函数。
 * **所有共享状态必须通过 `state.js`** 读写，不要在模块中定义全局变量。
 * **新增指令请在 `commands.js`** 中添加，新增消息处理逻辑请在 `listener.js` 中添加。
+* **如果模块要访问可选服务（例如 `ctx.puppeteer`）**，请在入口导出的 `inject` 中显式声明为 `optional`，避免 Koishi 输出属性注册警告。
 * **避免循环依赖**：如果模块 A 和模块 B 互相需要，请在函数内部使用延迟 `require()`（不要在文件顶部 require）。例如 `commands.js` 中对 `api.js` 的引用就是在函数体内延迟 require 的。
 
 ### 1. 全量脱离 YAML 的 JSON 配置树
@@ -94,16 +96,17 @@ Koishi 底层的 `session.send()` 遇到 1200 等风控拦截时，**有时并�
 
 路由状态保存在 `state.routerState` 中（包含 `roundRobinIndex` 和 `failedNodes`）。新增路由策略时，修改 `selectNextNode()` 函数即可。
 
-### 5. 长期记忆与自动压缩
+### 6. 图片渲染模块（新增）
 
-`lib/memory.js` 实现了群聊/私聊独立的长期记忆持久化：
+`lib/render.js` 负责帮助菜单、人格列表、模型列表分页、状态面板的图片卡片渲染，严格依赖 Koishi 的 `puppeteer` service，而不是在插件内部自行启动浏览器。
 
-* 记忆文件存储在 `memory/group/{channelId}.json` 和 `memory/private/{userId}.json`
-* 当对话条数超过配置的 `memorySummary.threshold` 时，自动触发压缩
-* 压缩逻辑：取旧消息 70% 发送给 AI 生成摘要，保留最新 30%
-* 压缩后的摘要以 `SerializeMessage("系统摘要", ...)` 格式保存
+开发时请注意：
 
-**注意**：修改压缩逻辑时，确保在 AI 摘要失败时有兜底处理，避免误删原始记忆。
+* 只通过 `ctx.puppeteer.render()` 调用截图能力，保持和 `@seidko/koishi-plugin-puppeteer` 的用法一致。
+* 图片渲染只用于**结构化、相对短，或已分页的输出**（当前为 `neko`、`neko.群聊人格列表`、`neko.私聊人格列表`、`neko.状态面板`，以及可选开启的 `neko.模型列表` 图片分页）。
+* `neko.UI 1/2/3` 用于切换图片主题；新增图片命令时请复用同一套 `uiStyle` 配置，不要再额外造一套并行配置。
+* `neko.模型列表` 的图片模式必须保持分页，当前设计目标是每页固定数量、高密度多列布局，避免在 100+ 节点池下生成超长图片。
+* 当 `puppeteer` 服务不可用、渲染失败、内容过长，或人格列表超出阈值时，**必须自动回退为纯文本**，不能让命令直接报错失效。
 
 ---
 
@@ -115,7 +118,7 @@ index.js（入口薄壳）
   ├── memes.js → 加载表情包目录 → state.js
   ├── utils.js → 加载指令避让列表 + 群友名单 → state.js
   ├── memory.js → 加载持久化记忆 → state.js
-  ├── commands.js → 注册 45+ 指令（延迟 require api.js、config.js、memory.js）
+  ├── commands.js → 注册 45+ 指令（延迟 require api.js、config.js、memory.js、render.js）
   └── listener.js → 注册消息监听
         ├── utils.js（权限检查、指令避让）
         ├── parser.js（消息解析、图片提取）
@@ -154,7 +157,8 @@ state.runtimeConfig.yourNewField = newValue;
 saveRuntimeConfig();
 ```
 
-3. 如果新增的指令名可能与其他 Koishi 插件冲突，在 `commands.json` 中添加避让词。
+3. 如果指令涉及图片卡片展示，请同时提供文本 fallback，并评估是否需要接入 `uiStyle` 或分页逻辑（例如模型列表）。
+4. 如果新增的指令名可能与其他 Koishi 插件冲突，在 `commands.json` 中添加避让词。
 
 ### 场景 2：接入新的 AI 协议格式
 
@@ -183,6 +187,11 @@ if (aiType === 'anthropic') {
 2. `loadAllConfigs()` 会自动将新字段合并到现有配置中（向下兼容）
 3. 在 `lib/commands.js` 中添加修改该字段的聊天指令
 4. 通过 `state.runtimeConfig.yourField` 在业务逻辑中读取
+
+图片渲染相关字段的现有做法可参考：
+
+* `uiStyle`：统一控制帮助菜单 / 人格列表 / 模型列表分页 / 状态面板的图片主题
+* `modelListImageEnabled`：开关模型列表是否启用图片分页渲染
 
 ### 场景 4：修改消息发送行为
 
@@ -230,6 +239,12 @@ AI 回复文本
 ### 1. 准备环境
 确保你已经安装了 [Node.js](https://nodejs.org/) (推荐 LTS 版本) 和一台运行中的本地 Koishi 实例。
 
+如果你要测试图片卡片功能，请额外在 Koishi 环境中安装并启用：
+
+```bash
+npm install @seidko/koishi-plugin-puppeteer
+```
+
 ### 2. Fork 与 Clone
 1. 点击本项目右上角的 **Fork** 按钮，将代码 Fork 到你自己的 GitHub 账号下。
 2. 将代码 Clone 到你的本地电脑：
@@ -267,7 +282,7 @@ npm link koishi-plugin-Enhanced-NekoAI
 koishi-plugin-Enhanced-NekoAI/
 ├── index.js                    ← 入口文件（~40 行薄壳）
 ├── package.json                ← Koishi 插件元信息
-├── lib/                        ← 14 个功能模块
+├── lib/                        ← 15 个功能模块
 │   ├── state.js                ← 全局状态单例
 │   ├── logger.js               ← 分级日志
 │   ├── config.js               ← 配置管理（加载/保存/默认值/Schema）
@@ -281,7 +296,8 @@ koishi-plugin-Enhanced-NekoAI/
 │   ├── memory.js               ← 长期记忆
 │   ├── memes.js                ← 表情包
 │   ├── commands.js             ← 指令注册
-│   └── listener.js             ← 事件监听
+│   ├── listener.js             ← 事件监听
+│   └── render.js               ← 帮助菜单 / 人格列表图片卡片渲染
 ├── runtime_config.json         ← 核心运行配置
 ├── api_config.json             ← API 节点配置
 ├── group_personality.json      ← 群聊人格库
@@ -292,10 +308,7 @@ koishi-plugin-Enhanced-NekoAI/
 ├── memory/                     ← 长期记忆目录
 │   ├── group/                  ← 群聊记忆
 │   └── private/                ← 私聊记忆
-├── neko_memes/                 ← 表情包目录（9 个情绪分类）
-├── .backups/                   ← 配置自动备份目录
-├── HANDOFF.md                  ← GUI 桌面应用交接文档
-└── docs/plans/                 ← 设计文档与实施计划
+└── neko_memes/                 ← 表情包目录（9 个情绪分类）
 ```
 
 ---
@@ -335,6 +348,8 @@ git push origin feature/your-awesome-feature
 * **Koishi 元素构造**：尽量遵守 Koishi 的生态标准，优先使用 `h` (h 函数，如 `h.text()`, `h('image', {url: ...})`) 元素进行消息体构建，避免直接拼接底层平台（如 CQ码）的特异性字符串，以保证跨平台的兼容性。
 * **JSON 配置向下兼容**：新增配置字段时，务必在 `config.js` 的 `defaultRuntimeConfig` 中提供默认值。`loadAllConfigs()` 会自动将新字段合并到用户现有的配置文件中，无需用户手动添加。
 * **避免全局变量**：所有需要跨模块共享的状态必须通过 `state.js` 管理。如果你需要新增共享状态，在 `state.js` 中添加字段并在文件顶部注释中说明用途。
+* **图片渲染要可降级**：凡是接入 `lib/render.js` 的命令，都必须保留文本 fallback，确保 `puppeteer` 缺失、截图失败、内容过长时插件仍可正常工作。
+* **不要同步用户本地数据**：开源仓库中不要提交真实的 `runtime_config.json`、`api_config.json`、聊天记录、长期记忆、旧版 HTML 工具或任何包含私有身份信息的示例数据。
 
 ---
 
