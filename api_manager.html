@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>NekoAI - API可视化管理器 Pro+</title>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <style>
+    :root {
+      --bg-body: #f0f2f5; --bg-card: #fff; --bg-sidebar: #fff; --bg-input: #fff;
+      --bg-card-inner: #fafafa; --bg-hover: #e6f7ff; --bg-nav: #fafafa;
+      --text-primary: #333; --text-secondary: #555; --text-muted: #888;
+      --border: #e8e8e8; --border-input: #d9d9d9;
+      --primary: #1890ff; --primary-light: #e6f7ff; --primary-border: #91d5ff;
+      --danger: #ff4d4f; --success: #52c41a; --warning: #faad14; --purple: #722ed1; --cyan: #13c2c2;
+      --shadow: rgba(0,0,0,0.05); --shadow-hover: rgba(24,144,255,0.1);
+    }
+    [data-theme="dark"] {
+      --bg-body: #1a1a2e; --bg-card: #16213e; --bg-sidebar: #16213e; --bg-input: #0f3460;
+      --bg-card-inner: #1a1a3e; --bg-hover: #0f3460; --bg-nav: #1a1a3e;
+      --text-primary: #e0e0e0; --text-secondary: #b0b0b0; --text-muted: #777;
+      --border: #2a2a4a; --border-input: #3a3a5a;
+      --shadow: rgba(0,0,0,0.3); --shadow-hover: rgba(24,144,255,0.2);
+    }
+
+    * { box-sizing: border-box; }
+    body { font-family: "Segoe UI", Roboto, Arial, sans-serif; background: var(--bg-body); margin: 0; padding: 0; color: var(--text-primary); transition: background 0.3s, color 0.3s; }
+    .app-layout { display: flex; max-width: 1500px; margin: 0 auto; gap: 16px; align-items: flex-start; padding: 16px; }
+
+    /* Sidebar */
+    .sidebar { width: 280px; background: var(--bg-sidebar); border-radius: 10px; padding: 12px; box-shadow: 0 4px 12px var(--shadow); position: sticky; top: 16px; max-height: calc(100vh - 32px); overflow-y: auto; flex-shrink: 0; z-index: 50; transition: background 0.3s; }
+    .sidebar h3 { margin: 0 0 8px 0; color: var(--primary); font-size: 15px; border-bottom: 2px solid var(--border); padding-bottom: 8px; }
+    .sidebar-search { width: 100%; padding: 7px 10px; border: 1px solid var(--border-input); border-radius: 6px; font-size: 13px; outline: none; margin-bottom: 8px; background: var(--bg-input); color: var(--text-primary); transition: 0.2s; }
+    .sidebar-search:focus { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(24,144,255,0.2); }
+    .sidebar-count { font-size: 11px; color: var(--text-muted); margin-bottom: 8px; }
+
+    .group-header { padding: 6px 8px; margin-bottom: 4px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: bold; color: var(--text-secondary); background: var(--bg-nav); display: flex; justify-content: space-between; align-items: center; transition: 0.2s; border: 1px solid transparent; user-select: none; }
+    .group-header:hover { background: var(--bg-hover); border-color: var(--primary-border); }
+    .group-header .arrow { font-size: 10px; transition: transform 0.2s; }
+    .group-header .arrow.open { transform: rotate(90deg); }
+    .group-count { font-size: 11px; color: var(--text-muted); font-weight: normal; background: var(--bg-card-inner); padding: 1px 6px; border-radius: 8px; }
+
+    .nav-item { padding: 5px 8px 5px 16px; margin-bottom: 3px; border-radius: 5px; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary); transition: 0.2s; border: 1px solid transparent; background: transparent; }
+    .nav-item:hover { background: var(--bg-hover); color: var(--primary); border-color: var(--primary-border); }
+    .nav-item.active-node { background: #f6ffed; border-color: #b7eb8f; }
+    [data-theme="dark"] .nav-item.active-node { background: #1a3a1a; border-color: #3a6a3a; }
+    .nav-item .idx { background: var(--border); padding: 1px 5px; border-radius: 3px; font-size: 10px; font-weight: bold; color: var(--text-primary); min-width: 22px; text-align: center; }
+    .nav-item:hover .idx { background: var(--primary); color: #fff; }
+    .nav-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+    .nav-ping { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .nav-ping.pass { background: var(--success); }
+    .nav-ping.fail { background: var(--danger); }
+
+    /* Main */
+    .main-content { flex: 1; min-width: 0; background: var(--bg-card); border-radius: 10px; box-shadow: 0 4px 12px var(--shadow); transition: background 0.3s; }
+
+    /* Header */
+    .header { padding: 12px 20px; border-bottom: 1px solid var(--border); background: var(--bg-card); position: sticky; top: 0; z-index: 100; border-radius: 10px 10px 0 0; }
+    .header-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .header h2 { margin: 0; color: var(--primary); font-size: 18px; display: flex; align-items: center; gap: 8px; }
+    .header-actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+    .dirty-badge { background: var(--danger); color: #fff; font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: normal; animation: pulseGlow 2s infinite; }
+
+    /* Stats bar */
+    .stats-bar { display: flex; gap: 12px; padding: 8px 20px; border-bottom: 1px solid var(--border); font-size: 12px; color: var(--text-muted); flex-wrap: wrap; align-items: center; background: var(--bg-card-inner); }
+    .stat-item { display: flex; align-items: center; gap: 4px; }
+    .stat-badge { padding: 1px 6px; border-radius: 8px; font-weight: bold; font-size: 11px; }
+    .stat-badge.openai { background: #e6f4ff; color: #1890ff; }
+    .stat-badge.anthropic { background: #fff7e6; color: #d48806; }
+    .stat-badge.gemini { background: #f6ffed; color: #52c41a; }
+    [data-theme="dark"] .stat-badge.openai { background: #0a2540; }
+    [data-theme="dark"] .stat-badge.anthropic { background: #2a1a00; }
+    [data-theme="dark"] .stat-badge.gemini { background: #0a2a0a; }
+    .stat-warn { color: var(--danger); font-weight: bold; }
+
+    /* Batch bar */
+    .batch-bar { display: flex; gap: 8px; padding: 8px 20px; border-bottom: 1px solid var(--border); background: var(--primary-light); align-items: center; font-size: 13px; }
+    [data-theme="dark"] .batch-bar { background: #0a2540; }
+    .batch-bar .batch-count { font-weight: bold; color: var(--primary); }
+
+    .editor-body { padding: 20px; }
+
+    /* Buttons */
+    .btn { padding: 6px 12px; border: none; border-radius: 5px; cursor: pointer; color: #fff; background: var(--primary); font-weight: 600; transition: 0.2s; font-size: 12px; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+    .btn:hover { opacity: 0.85; transform: translateY(-1px); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    .btn-sm { padding: 4px 10px; font-size: 11px; }
+    .btn-danger { background: var(--danger); }
+    .btn-success { background: var(--success); }
+    .btn-warning { background: var(--warning); }
+    .btn-purple { background: var(--purple); }
+    .btn-cyan { background: var(--cyan); }
+    .btn-outline { background: transparent; color: var(--primary); border: 1px solid var(--primary); }
+    .btn-outline:hover { background: var(--primary); color: #fff; }
+    .btn-ghost { background: transparent; color: var(--text-muted); border: 1px solid var(--border); }
+    .btn-ghost:hover { border-color: var(--primary); color: var(--primary); }
+    .btn-needs-save { background: var(--danger) !important; animation: pulseGlow 1.5s infinite; font-size: 13px; padding: 8px 16px; }
+
+    @keyframes pulseGlow {
+      0% { box-shadow: 0 0 0 0 rgba(255,77,79,0.7); }
+      70% { box-shadow: 0 0 0 8px rgba(255,77,79,0); }
+      100% { box-shadow: 0 0 0 0 rgba(255,77,79,0); }
+    }
+
+    /* Cards */
+    .api-card { border: 1px solid var(--border); border-radius: 8px; padding: 14px; margin-bottom: 12px; background: var(--bg-card-inner); transition: 0.3s; position: relative; }
+    .api-card:hover { border-color: var(--primary); box-shadow: 0 2px 8px var(--shadow-hover); }
+    .api-card.dragging { opacity: 0.4; border: 2px dashed var(--primary); }
+    .api-card.drag-over { border-top: 3px solid var(--primary); transform: translateY(2px); }
+    .api-card.duplicate-warn { border-color: var(--warning); background: #fffbe6; }
+    [data-theme="dark"] .api-card.duplicate-warn { background: #2a2500; }
+    .api-card.is-active { border-color: var(--success); box-shadow: 0 0 0 2px rgba(82,196,26,0.2); }
+
+    .api-header { font-weight: bold; border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+    .api-header-left { display: flex; align-items: center; gap: 6px; }
+    .api-index { background: var(--primary); color: #fff; padding: 2px 7px; border-radius: 4px; font-size: 11px; }
+    .card-badge { padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; }
+    .badge-active { background: #f6ffed; color: var(--success); border: 1px solid #b7eb8f; }
+    .badge-dup { background: #fffbe6; color: #d48806; border: 1px solid #ffe58f; }
+    .badge-pass { background: #f6ffed; color: var(--success); border: 1px solid #b7eb8f; }
+    .badge-fail { background: #fff2f0; color: var(--danger); border: 1px solid #ffccc7; }
+    .badge-testing { background: var(--primary-light); color: var(--primary); border: 1px solid var(--primary-border); }
+    [data-theme="dark"] .badge-active, [data-theme="dark"] .badge-pass { background: #0a2a0a; border-color: #3a6a3a; }
+    [data-theme="dark"] .badge-dup { background: #2a2500; border-color: #5a4a00; }
+    [data-theme="dark"] .badge-fail { background: #2a0a0a; border-color: #5a1a1a; }
+
+    .drag-handle { cursor: grab; font-size: 16px; color: var(--text-muted); user-select: none; }
+    .drag-handle:active { cursor: grabbing; color: var(--primary); }
+
+    .card-checkbox { width: 16px; height: 16px; cursor: pointer; accent-color: var(--primary); }
+
+    .api-row { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 8px; }
+    .api-row label { width: 80px; font-size: 13px; text-align: right; font-weight: 500; color: var(--text-secondary); flex-shrink: 0; padding-top: 7px; }
+    .field-wrapper { flex: 1; min-width: 0; }
+    .field-inner { display: flex; gap: 4px; }
+    .field-inner input { flex: 1; }
+    .api-row input, .api-row select { width: 100%; padding: 7px 10px; border: 1px solid var(--border-input); border-radius: 4px; font-size: 13px; outline: none; transition: 0.2s; font-family: monospace; background: var(--bg-input); color: var(--text-primary); }
+    .api-row input:focus, .api-row select:focus { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(24,144,255,0.2); }
+    .field-error { border-color: var(--danger) !important; }
+    .field-error:focus { box-shadow: 0 0 0 2px rgba(255,77,79,0.2) !important; }
+    .field-error-msg { font-size: 11px; color: var(--danger); margin-top: 3px; }
+
+    .eye-btn { background: transparent; border: 1px solid var(--border-input); border-radius: 4px; cursor: pointer; font-size: 14px; padding: 4px 8px; color: var(--text-muted); transition: 0.2s; flex-shrink: 0; }
+    .eye-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+    .controls { display: flex; justify-content: flex-end; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+
+    /* Empty state */
+    .empty-state { text-align: center; padding: 80px 20px; }
+    .empty-state h1 { font-size: 48px; margin: 0 0 16px 0; }
+    .empty-state p { color: var(--text-muted); margin-bottom: 24px; line-height: 1.6; }
+    .btn-huge { font-size: 16px; padding: 14px 36px; border-radius: 8px; box-shadow: 0 4px 15px rgba(24,144,255,0.3); }
+
+    /* Auto-detect banner */
+    .auto-detect-banner { background: linear-gradient(135deg, var(--primary-light), #f0f5ff); border: 2px solid var(--primary-border); border-radius: 12px; padding: 20px 28px; margin-top: 20px; display: flex; align-items: center; gap: 16px; box-shadow: 0 4px 16px rgba(24,144,255,0.15); animation: bannerSlideIn 0.4s ease-out; }
+    [data-theme="dark"] .auto-detect-banner { background: linear-gradient(135deg, #0a2540, #0f3460); }
+    .auto-detect-icon { font-size: 36px; flex-shrink: 0; }
+    .auto-detect-info { flex: 1; }
+    .auto-detect-info .detect-title { font-size: 14px; font-weight: 700; color: var(--primary); margin-bottom: 4px; }
+    .auto-detect-info .detect-file { font-size: 12px; color: var(--text-secondary); font-family: monospace; background: var(--bg-card-inner); padding: 2px 8px; border-radius: 4px; }
+    .auto-detect-actions { display: flex; gap: 8px; flex-shrink: 0; }
+    @keyframes bannerSlideIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* Drop zone overlay */
+    .drop-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(24,144,255,0.12); z-index: 99999; display: flex; justify-content: center; align-items: center; pointer-events: none; }
+    .drop-overlay-inner { background: var(--bg-card); border: 3px dashed var(--primary); border-radius: 16px; padding: 48px 64px; text-align: center; box-shadow: 0 8px 32px rgba(24,144,255,0.25); }
+    .drop-overlay-inner .drop-icon { font-size: 56px; margin-bottom: 12px; }
+    .drop-overlay-inner .drop-text { font-size: 18px; font-weight: 700; color: var(--primary); }
+    .drop-overlay-inner .drop-hint { font-size: 12px; color: var(--text-muted); margin-top: 6px; }
+
+    /* Toast */
+    .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: var(--success); color: #fff; padding: 10px 20px; border-radius: 6px; font-weight: bold; font-size: 13px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 9999; transition: 0.3s; }
+    .toast.error { background: var(--danger); }
+    .toast.warn { background: var(--warning); color: #333; }
+
+    /* Highlight animation */
+    @keyframes highlight { 0% { box-shadow: 0 0 0 0 rgba(24,144,255,0.7); } 70% { box-shadow: 0 0 0 10px rgba(24,144,255,0); } 100% { box-shadow: 0 0 0 0 rgba(24,144,255,0); } }
+    .highlight-active { animation: highlight 1s ease-out; }
+
+    /* Shortcuts overlay */
+    .shortcuts-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.4); z-index: 10000; display: flex; justify-content: center; align-items: center; }
+    .shortcuts-panel { background: var(--bg-card); border-radius: 10px; padding: 24px; min-width: 320px; box-shadow: 0 8px 30px rgba(0,0,0,0.2); }
+    .shortcuts-panel h3 { margin: 0 0 16px 0; color: var(--primary); }
+    .shortcut-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+    .shortcut-key { background: var(--bg-card-inner); padding: 2px 8px; border-radius: 4px; font-family: monospace; font-size: 12px; border: 1px solid var(--border); }
+
+    /* Theme toggle */
+    .theme-toggle { background: transparent; border: 1px solid var(--border); border-radius: 50%; width: 32px; height: 32px; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: 0.2s; color: var(--text-primary); }
+    .theme-toggle:hover { border-color: var(--primary); }
+
+    /* Active index input */
+    .active-index-input { width: 50px; padding: 4px 6px; border: 1px solid var(--border-input); border-radius: 4px; font-size: 12px; text-align: center; background: var(--bg-input); color: var(--text-primary); outline: none; }
+    .active-index-input:focus { border-color: var(--primary); }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="app-layout">
+      <!-- Sidebar -->
+      <div class="sidebar" v-if="isFileLoaded">
+        <h3>&#9981; 节点导航</h3>
+        <input class="sidebar-search" type="text" placeholder="&#128269; 搜索模型/备注/类型..." v-model="searchQuery">
+        <div class="sidebar-count">匹配 {{ filteredNavCount }} / {{ apis.length }} 个节点</div>
+
+        <div v-if="filteredGroups.length === 0" style="font-size:12px;color:var(--text-muted);text-align:center;padding:16px 0;">无匹配节点</div>
+        <div v-for="group in filteredGroups" :key="group.name" style="margin-bottom:4px;">
+          <div class="group-header" @click="toggleGroup(group.name)">
+            <div style="display:flex;align-items:center;gap:6px;">
+              <span class="arrow" :class="{open:expandedGroups[group.name]}">&#9654;</span>
+              <span>{{ group.name }}</span>
+            </div>
+            <span class="group-count">{{ group.items.length }}</span>
+          </div>
+          <div v-show="expandedGroups[group.name]">
+            <div class="nav-item" v-for="item in group.items" :key="'nav-'+item._id"
+                 :class="{'active-node': item.originalIndex === activeApiIndex}"
+                 @click="scrollToNode(item.originalIndex)">
+              <span class="idx">{{ item.originalIndex }}</span>
+              <span class="nav-name" :title="item.remark || item.modelName">{{ item.modelName || '未命名' }}</span>
+              <span class="nav-ping pass" v-if="pingResults[item._id]==='pass'"></span>
+              <span class="nav-ping fail" v-if="pingResults[item._id]==='fail'"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Content -->
+      <div class="main-content">
+        <!-- Empty State -->
+        <div class="empty-state" v-if="!isFileLoaded">
+          <h1>&#127760;</h1>
+          <h2>NekoAI 节点配置编辑器 Pro+</h2>
+          <p>深色模式 · 密钥遮蔽 · 连通测试 · 批量操作 · 撤销重做 · 重复检测 · 字段校验 · 拖拽加载</p>
+          <button class="btn btn-huge" @click="openFile">&#128194; 选择本地 api_config.json</button>
+
+          <!-- Auto-detect banner -->
+          <div class="auto-detect-banner" v-if="detectedFile">
+            <span class="auto-detect-icon">&#128269;</span>
+            <div class="auto-detect-info">
+              <div class="detect-title">已检测到当前目录下的配置文件</div>
+              <div class="detect-file">{{ detectedFile.name }}</div>
+            </div>
+            <div class="auto-detect-actions">
+              <button class="btn btn-success" @click="loadDetectedFile">&#10004; 确认加载</button>
+              <button class="btn btn-ghost" @click="detectedFile=null">忽略</button>
+            </div>
+          </div>
+        </div>
+
+        <div v-else>
+          <!-- Header -->
+          <div class="header">
+            <div class="header-top">
+              <h2>
+                {{ fileName }}
+                <span class="dirty-badge" v-if="isDirty">未保存 *</span>
+              </h2>
+              <div class="header-actions">
+                <button class="theme-toggle" @click="toggleTheme" :title="isDark?'切换亮色':'切换暗色'">{{ isDark ? '&#9728;' : '&#127769;' }}</button>
+                <button class="btn btn-ghost btn-sm" @click="showShortcuts=true" title="Ctrl+/">&#9000; 快捷键</button>
+                <button class="btn btn-ghost btn-sm" @click="toggleAllKeys">{{ globalKeysVisible ? '&#128064; 隐藏全部Key' : '&#128065; 显示全部Key' }}</button>
+                <label style="font-size:11px;color:var(--text-muted);display:flex;align-items:center;gap:4px;" title="当前活跃节点编号">
+                  活跃#<input class="active-index-input" type="number" v-model.number="activeApiIndex" min="-1" :max="apis.length-1">
+                </label>
+                <button class="btn btn-cyan btn-sm" @click="batchPingAll" :disabled="isBatchTesting">{{ isBatchTesting ? '&#8987; 测试中...' : '&#128225; 批量测试' }}</button>
+                <button class="btn btn-cyan btn-sm" @click="exportBackup">&#128451; 备份</button>
+                <button class="btn btn-ghost btn-sm" @click="undo" :disabled="historyIndex<=0" title="Ctrl+Z">&#8617; 撤销</button>
+                <button class="btn btn-ghost btn-sm" @click="redo" :disabled="historyIndex>=history.length-1" title="Ctrl+Y">&#8618; 重做</button>
+                <button class="btn btn-sm" @click="addApi">+ 追加末尾</button>
+                <button class="btn" :class="isDirty?'btn-needs-save':'btn-success'" @click="saveFile">
+                  {{ isDirty ? '&#128680; 立即保存' : '&#9989; 已保存' }}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Stats bar -->
+          <div class="stats-bar">
+            <span class="stat-item">&#128202; 共 <b>{{ apis.length }}</b> 节点</span>
+            <span class="stat-item" v-for="(count, type) in aiTypeCounts" :key="type">
+              <span class="stat-badge" :class="type">{{ type }}</span> {{ count }}
+            </span>
+            <span class="stat-item stat-warn" v-if="duplicateCount>0">&#9888; {{ duplicateCount }} 组重复</span>
+            <span class="stat-item stat-warn" v-if="hasValidationErrors">&#9888; {{ Object.keys(validationErrors).length }} 个校验异常</span>
+          </div>
+
+          <!-- Batch bar -->
+          <div class="batch-bar" v-if="selectedIds.size>0">
+            <span>已选 <span class="batch-count">{{ selectedIds.size }}</span> 个节点</span>
+            <button class="btn btn-sm" @click="selectAll">全选</button>
+            <button class="btn btn-ghost btn-sm" @click="deselectAll">取消全选</button>
+            <button class="btn btn-danger btn-sm" @click="batchDelete">&#128465; 批量删除</button>
+            <button class="btn btn-cyan btn-sm" @click="batchExport">&#128194; 导出选中</button>
+          </div>
+
+          <!-- Cards -->
+          <div class="editor-body">
+            <div v-if="apis.length===0" style="text-align:center;color:var(--text-muted);padding:40px 0;">列表为空，请点击上方添加节点。</div>
+
+            <div class="api-card" v-for="(api, index) in apis" :key="api._id" :id="'node-'+index"
+                 draggable="true"
+                 @dragstart="dragStart($event,index)" @dragover.prevent="dragOver($event,index)"
+                 @drop="drop($event,index)" @dragend="dragEnd"
+                 :class="{ dragging: draggedIndex===index, 'drag-over': dropTargetIndex===index, 'duplicate-warn': isDuplicateNode(index), 'is-active': index===activeApiIndex }">
+
+              <div class="api-header">
+                <div class="api-header-left">
+                  <input type="checkbox" class="card-checkbox" :checked="selectedIds.has(api._id)" @change="toggleSelect(api._id)">
+                  <span class="drag-handle" title="拖拽排序">&#9776;</span>
+                  <span class="api-index">#{{ index }}</span>
+                  <span class="card-badge badge-active" v-if="index===activeApiIndex">&#9989; 使用中</span>
+                  <span class="card-badge badge-dup" v-if="isDuplicateNode(index)">&#9888; 重复</span>
+                  <span class="card-badge badge-pass" v-if="pingResults[api._id]==='pass'">&#10004; {{ pingTimes[api._id]||'' }}ms</span>
+                  <span class="card-badge badge-fail" v-if="pingResults[api._id]==='fail'">&#10008; 失败</span>
+                  <span class="card-badge badge-testing" v-if="pingResults[api._id]==='testing'">&#8987; 测试中</span>
+                </div>
+                <div style="font-size:12px;color:var(--text-muted);">{{ api.remark || '未命名' }}</div>
+              </div>
+
+              <div class="api-row">
+                <label>接口类型:</label>
+                <div class="field-wrapper">
+                  <select v-model="api.aiType" @change="markDirtyField()">
+                    <option value="openai">openai (兼容主流)</option>
+                    <option value="anthropic">anthropic (Claude原生)</option>
+                    <option value="gemini">gemini (谷歌原生)</option>
+                  </select>
+                </div>
+              </div>
+              <div class="api-row">
+                <label>API URL:</label>
+                <div class="field-wrapper">
+                  <input type="text" v-model="api.apiUrl" placeholder="https://api.xxx.com/v1/chat/completions"
+                    :class="{'field-error': validationErrors[api._id]&&validationErrors[api._id].apiUrl}" @input="markDirtyField()">
+                  <div class="field-error-msg" v-if="validationErrors[api._id]&&validationErrors[api._id].apiUrl">{{ validationErrors[api._id].apiUrl }}</div>
+                </div>
+              </div>
+              <div class="api-row">
+                <label>API Key:</label>
+                <div class="field-wrapper">
+                  <div class="field-inner">
+                    <input :type="keyVisibility[api._id]?'text':'password'" v-model="api.apiKey" placeholder="sk-xxxxxxxxxxxx"
+                      :class="{'field-error': validationErrors[api._id]&&validationErrors[api._id].apiKey}" @input="markDirtyField()">
+                    <button class="eye-btn" @click="toggleKeyVisibility(api._id)" :title="keyVisibility[api._id]?'隐藏':'显示'">{{ keyVisibility[api._id]?'&#128064;':'&#128065;' }}</button>
+                  </div>
+                  <div class="field-error-msg" v-if="validationErrors[api._id]&&validationErrors[api._id].apiKey">{{ validationErrors[api._id].apiKey }}</div>
+                </div>
+              </div>
+              <div class="api-row">
+                <label>模型名称:</label>
+                <div class="field-wrapper">
+                  <input type="text" v-model="api.modelName" placeholder="gpt-4o / claude-sonnet-4-6"
+                    :class="{'field-error': validationErrors[api._id]&&validationErrors[api._id].modelName}" @input="markDirtyField()">
+                  <div class="field-error-msg" v-if="validationErrors[api._id]&&validationErrors[api._id].modelName">{{ validationErrors[api._id].modelName }}</div>
+                </div>
+              </div>
+              <div class="api-row">
+                <label>备 注:</label>
+                <div class="field-wrapper">
+                  <input type="text" v-model="api.remark" placeholder="标注来源、组别或特征" @input="markDirtyField()">
+                </div>
+              </div>
+
+              <div class="controls">
+                <button class="btn btn-outline btn-sm" @click="pingNode(api,index)" :disabled="pingResults[api._id]==='testing'">&#128225; 测试</button>
+                <button class="btn btn-purple btn-sm" @click="cloneApi(index)">&#128108; 克隆</button>
+                <button class="btn btn-warning btn-sm" @click="insertApiAfter(index)">+ 在此后插入</button>
+                <button class="btn btn-danger btn-sm" @click="removeApi(index)">&#128465; 移除</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" :class="{error:toastType==='error',warn:toastType==='warn'}" v-if="showToast">{{ toastMessage }}</div>
+
+    <!-- Shortcuts Panel -->
+    <div class="shortcuts-overlay" v-if="showShortcuts" @click.self="showShortcuts=false">
+      <div class="shortcuts-panel">
+        <h3>&#9000; 快捷键</h3>
+        <div class="shortcut-row"><span>保存文件</span><span class="shortcut-key">Ctrl + S</span></div>
+        <div class="shortcut-row"><span>撤销</span><span class="shortcut-key">Ctrl + Z</span></div>
+        <div class="shortcut-row"><span>重做</span><span class="shortcut-key">Ctrl + Y</span></div>
+        <div class="shortcut-row"><span>快捷键面板</span><span class="shortcut-key">Ctrl + /</span></div>
+        <div style="margin-top:16px;text-align:right;"><button class="btn btn-sm" @click="showShortcuts=false">关闭</button></div>
+      </div>
+    </div>
+
+    <!-- Drop overlay -->
+    <div class="drop-overlay" v-if="showDropZone">
+      <div class="drop-overlay-inner">
+        <div class="drop-icon">&#128230;</div>
+        <div class="drop-text">释放文件以加载</div>
+        <div class="drop-hint">支持 api_config.json</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref, reactive, computed, watch, onMounted, nextTick, toRaw } = Vue;
+
+    createApp({
+      setup() {
+        const apis = ref([]);
+        const isFileLoaded = ref(false);
+        const fileName = ref('');
+        const showDropZone = ref(false);
+        const detectedFile = ref(null);
+        let fileHandle = null;
+        let dropCounter = 0;
+        const isDirty = ref(false);
+        const activeApiIndex = ref(-1);
+
+        // Toast
+        const showToast = ref(false);
+        const toastType = ref('');
+        const toastMessage = ref('');
+        let toastTimer = null;
+        const displayToast = (msg, type) => {
+          if (toastTimer) clearTimeout(toastTimer);
+          toastMessage.value = msg; toastType.value = type || ''; showToast.value = true;
+          toastTimer = setTimeout(() => showToast.value = false, 3000);
+        };
+
+        // Theme
+        const isDark = ref(false);
+        const applyTheme = () => document.documentElement.setAttribute('data-theme', isDark.value ? 'dark' : 'light');
+        const toggleTheme = () => { isDark.value = !isDark.value; localStorage.setItem('api-mgr-theme', isDark.value?'dark':'light'); applyTheme(); };
+
+        // Drag & Drop
+        const draggedIndex = ref(null);
+        const dropTargetIndex = ref(null);
+        const dragStart = (e, i) => { draggedIndex.value = i; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(i)); };
+        const dragOver = (e, i) => { dropTargetIndex.value = i; };
+        const drop = (e, i) => {
+          const from = draggedIndex.value;
+          if (from !== null && from !== i) { const item = apis.value.splice(from,1)[0]; apis.value.splice(i,0,item); pushHistory(); }
+          draggedIndex.value = null; dropTargetIndex.value = null;
+        };
+        const dragEnd = () => { draggedIndex.value = null; dropTargetIndex.value = null; };
+
+        // ID
+        let idC = 0;
+        const genId = () => 'n'+(++idC)+'_'+Math.random().toString(36).substr(2,6);
+
+        // Undo/Redo
+        const history = ref([]);
+        const historyIndex = ref(-1);
+        let isUndoRedo = false;
+        const cloneApis = arr => arr.map(a => ({_id:a._id,apiUrl:a.apiUrl,apiKey:a.apiKey,modelName:a.modelName,remark:a.remark,aiType:a.aiType}));
+        const pushHistory = () => {
+          if (isUndoRedo) return;
+          const snap = cloneApis(apis.value);
+          if (historyIndex.value < history.value.length-1) history.value = history.value.slice(0, historyIndex.value+1);
+          history.value.push(snap);
+          if (history.value.length > 50) history.value.shift();
+          historyIndex.value = history.value.length - 1;
+        };
+        const undo = () => {
+          if (historyIndex.value <= 0) return;
+          isUndoRedo = true; historyIndex.value--; apis.value = cloneApis(history.value[historyIndex.value]);
+          nextTick(() => { isUndoRedo = false; }); displayToast('已撤销');
+        };
+        const redo = () => {
+          if (historyIndex.value >= history.value.length-1) return;
+          isUndoRedo = true; historyIndex.value++; apis.value = cloneApis(history.value[historyIndex.value]);
+          nextTick(() => { isUndoRedo = false; }); displayToast('已重做');
+        };
+
+        // Key Masking
+        const keyVisibility = reactive({});
+        const globalKeysVisible = ref(false);
+        const toggleKeyVisibility = id => { keyVisibility[id] = !keyVisibility[id]; };
+        const toggleAllKeys = () => { globalKeysVisible.value = !globalKeysVisible.value; apis.value.forEach(a => { keyVisibility[a._id] = globalKeysVisible.value; }); };
+
+        // Search & Grouping
+        const searchQuery = ref('');
+        const expandedGroups = reactive({});
+        const extractProvider = r => {
+          if (!r || !r.trim()) return '未分组';
+          const m = r.trim().match(/^([^-\u2014\u2013]+)/);
+          return m ? (m[1].trim() || '未分组') : r.trim();
+        };
+        const filteredGroups = computed(() => {
+          const q = searchQuery.value.trim().toLowerCase();
+          const groups = {}; const order = [];
+          apis.value.forEach((api, idx) => {
+            if (q) {
+              const hit = [api.modelName,api.remark,api.aiType].some(s => (s||'').toLowerCase().includes(q));
+              if (!hit) return;
+            }
+            const p = extractProvider(api.remark);
+            if (!groups[p]) { groups[p] = {name:p,items:[]}; order.push(p); }
+            groups[p].items.push({...api, originalIndex:idx});
+          });
+          Object.keys(groups).forEach(n => { if (!(n in expandedGroups)) expandedGroups[n] = true; });
+          return order.map(n => groups[n]);
+        });
+        const filteredNavCount = computed(() => filteredGroups.value.reduce((s,g)=>s+g.items.length,0));
+        const toggleGroup = n => { expandedGroups[n] = !expandedGroups[n]; };
+
+        // Stats
+        const aiTypeCounts = computed(() => {
+          const c = {}; apis.value.forEach(a => { const t = a.aiType||'unknown'; c[t]=(c[t]||0)+1; }); return c;
+        });
+
+        // Duplicates
+        const duplicateSet = computed(() => {
+          const seen = {}; const dups = new Set();
+          apis.value.forEach((a,i) => {
+            const k = (a.apiUrl||'').trim()+'||'+(a.modelName||'').trim();
+            if (k==='||') return;
+            if (seen[k]!==undefined) { dups.add(seen[k]); dups.add(i); } else { seen[k]=i; }
+          });
+          return dups;
+        });
+        const duplicateCount = computed(() => {
+          const seen = {};
+          apis.value.forEach(a => { const k=(a.apiUrl||'').trim()+'||'+(a.modelName||'').trim(); if(k==='||')return; seen[k]=(seen[k]||0)+1; });
+          return Object.values(seen).filter(c=>c>1).length;
+        });
+        const isDuplicateNode = i => duplicateSet.value.has(i);
+
+        // Validation
+        const validationErrors = computed(() => {
+          const errs = {};
+          apis.value.forEach(a => {
+            const e = {};
+            if (!a.apiUrl.trim()) e.apiUrl = 'URL不能为空';
+            else if (!/^https?:\/\//i.test(a.apiUrl)) e.apiUrl = 'URL必须以 http:// 或 https:// 开头';
+            if (!a.apiKey.trim()) e.apiKey = 'Key不能为空';
+            if (!a.modelName.trim()) e.modelName = '模型名称不能为空';
+            if (Object.keys(e).length) errs[a._id] = e;
+          });
+          return errs;
+        });
+        const hasValidationErrors = computed(() => Object.keys(validationErrors.value).length > 0);
+
+        // Batch Selection
+        const selectedIds = reactive(new Set());
+        const toggleSelect = id => { selectedIds.has(id) ? selectedIds.delete(id) : selectedIds.add(id); };
+        const selectAll = () => { apis.value.forEach(a => selectedIds.add(a._id)); };
+        const deselectAll = () => { selectedIds.clear(); };
+        const batchDelete = () => {
+          if (!confirm('确定批量删除 '+selectedIds.size+' 个节点？')) return;
+          apis.value = apis.value.filter(a => !selectedIds.has(a._id));
+          selectedIds.clear(); pushHistory(); displayToast('已批量删除');
+        };
+        const batchExport = () => {
+          const sel = apis.value.filter(a => selectedIds.has(a._id));
+          const payload = sel.map(i => ({apiUrl:i.apiUrl,apiKey:i.apiKey,modelName:i.modelName,remark:i.remark,aiType:i.aiType}));
+          const blob = new Blob([JSON.stringify(payload,null,2)], {type:'application/json'});
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a'); a.href=url;
+          a.download = 'api_selected_'+new Date().toISOString().replace(/[:.]/g,'-').slice(0,19)+'.json';
+          a.click(); URL.revokeObjectURL(url); displayToast('已导出 '+sel.length+' 个节点');
+        };
+
+        // Ping
+        const pingResults = reactive({});
+        const pingTimes = reactive({});
+        const isBatchTesting = ref(false);
+        const pingNode = async (api) => {
+          pingResults[api._id] = 'testing';
+          const t0 = performance.now();
+          try {
+            const headers = {'Content-Type':'application/json'};
+            if (api.aiType === 'anthropic') {
+              headers['x-api-key'] = api.apiKey;
+              headers['anthropic-version'] = '2023-06-01';
+              headers['anthropic-dangerous-direct-browser-access'] = 'true';
+            } else {
+              headers['Authorization'] = 'Bearer '+api.apiKey;
+            }
+            const resp = await fetch(api.apiUrl, {
+              method:'POST', headers,
+              body: JSON.stringify({model:api.modelName, max_tokens:1, messages:[{role:'user',content:'hi'}]}),
+              signal: AbortSignal.timeout(15000)
+            });
+            pingTimes[api._id] = Math.round(performance.now()-t0);
+            pingResults[api._id] = (resp.ok || [401,403,429].includes(resp.status)) ? 'pass' : 'fail';
+          } catch(e) {
+            pingTimes[api._id] = Math.round(performance.now()-t0);
+            pingResults[api._id] = 'fail';
+          }
+        };
+        const batchPingAll = async () => {
+          isBatchTesting.value = true;
+          displayToast('开始测试 '+apis.value.length+' 个节点...');
+          for (let i=0; i<apis.value.length; i++) {
+            await pingNode(apis.value[i]);
+            if (i<apis.value.length-1) await new Promise(r=>setTimeout(r,80));
+          }
+          isBatchTesting.value = false;
+          const pass = Object.values(toRaw(pingResults)).filter(v=>v==='pass').length;
+          const fail = Object.values(toRaw(pingResults)).filter(v=>v==='fail').length;
+          displayToast('测试完成: '+pass+' 通过, '+fail+' 失败');
+        };
+
+        // Shortcuts
+        const showShortcuts = ref(false);
+
+        // File Ops
+        const loadFromText = (text, name) => {
+          let data = []; try{data=JSON.parse(text);}catch(e){data=[];}
+          apis.value = data.map(i => ({_id:genId(),apiUrl:i.apiUrl||'',apiKey:i.apiKey||'',modelName:i.modelName||'',remark:i.remark||'',aiType:i.aiType||'openai'}));
+          apis.value.forEach(a => {keyVisibility[a._id]=false;});
+          fileName.value = name;
+          isFileLoaded.value = true;
+          setTimeout(() => { isDirty.value=false; history.value=[cloneApis(apis.value)]; historyIndex.value=0; }, 100);
+          displayToast('已加载配置文件');
+        };
+        const openFile = async () => {
+          try {
+            [fileHandle] = await window.showOpenFilePicker({types:[{description:'JSON',accept:{'application/json':['.json']}}],multiple:false});
+            const file = await fileHandle.getFile();
+            const text = await file.text();
+            loadFromText(text, file.name);
+          } catch(err) {
+            if (err.name!=='AbortError') displayToast('无法读取文件', 'error');
+          }
+        };
+        const getPayload = () => apis.value.map(i => ({apiUrl:i.apiUrl,apiKey:i.apiKey,modelName:i.modelName,remark:i.remark,aiType:i.aiType}));
+        const saveFile = async () => {
+          if (!fileHandle) return;
+          if (hasValidationErrors.value && !confirm('有 '+Object.keys(validationErrors.value).length+' 个校验错误，确定保存？')) return;
+          try {
+            const w = await fileHandle.createWritable();
+            await w.write(JSON.stringify(getPayload(),null,2)); await w.close();
+            isDirty.value=false; displayToast('保存成功！使用【neko.重载配置】生效');
+          } catch(err) { displayToast('保存失败: '+err.message, 'error'); }
+        };
+        const exportBackup = () => {
+          const blob = new Blob([JSON.stringify(getPayload(),null,2)],{type:'application/json'});
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a'); a.href=url;
+          a.download='api_backup_'+new Date().toISOString().replace(/[:.]/g,'-').slice(0,19)+'.json';
+          a.click(); URL.revokeObjectURL(url); displayToast('备份已下载');
+        };
+
+        // CRUD
+        const addApi = () => {
+          const n = {_id:genId(),apiUrl:'',apiKey:'',modelName:'',remark:'新增节点',aiType:'openai'};
+          keyVisibility[n._id]=false; apis.value.push(n); pushHistory();
+          setTimeout(()=>window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'}),100);
+        };
+        const insertApiAfter = i => {
+          const n = {_id:genId(),apiUrl:'',apiKey:'',modelName:'',remark:'新增节点',aiType:'openai'};
+          keyVisibility[n._id]=false; apis.value.splice(i+1,0,n); pushHistory();
+          setTimeout(()=>scrollToNode(i+1),100);
+        };
+        const cloneApi = i => {
+          const t = apis.value[i];
+          const n = {_id:genId(),apiUrl:t.apiUrl,apiKey:t.apiKey,modelName:t.modelName+' (克隆)',remark:t.remark,aiType:t.aiType};
+          keyVisibility[n._id]=false; apis.value.splice(i+1,0,n); pushHistory();
+          setTimeout(()=>scrollToNode(i+1),100); displayToast('节点已克隆');
+        };
+        const removeApi = i => {
+          if (confirm('确定删除节点 #'+i+'？')) {
+            const r = apis.value.splice(i,1)[0]; selectedIds.delete(r._id); delete keyVisibility[r._id]; pushHistory();
+          }
+        };
+
+        const scrollToNode = i => {
+          const el = document.getElementById('node-'+i);
+          if (el) { el.scrollIntoView({behavior:'smooth',block:'center'}); el.classList.remove('highlight-active'); void el.offsetWidth; el.classList.add('highlight-active'); }
+        };
+
+        let dirtyTimer = null;
+        const markDirtyField = () => { if(dirtyTimer)clearTimeout(dirtyTimer); dirtyTimer=setTimeout(()=>pushHistory(),600); };
+
+        const loadDetectedFile = () => {
+          if (!detectedFile.value) return;
+          loadFromText(detectedFile.value.text, detectedFile.value.name);
+          fileHandle = null;
+          detectedFile.value = null;
+        };
+
+        watch(apis, () => { if (isFileLoaded.value && !isUndoRedo) isDirty.value=true; }, {deep:true});
+
+        onMounted(() => {
+          const saved = localStorage.getItem('api-mgr-theme');
+          if (saved==='dark') isDark.value=true;
+          else if (!saved && window.matchMedia && window.matchMedia('(prefers-color-scheme:dark)').matches) isDark.value=true;
+          applyTheme();
+
+          window.addEventListener('beforeunload', e => {
+            if(isDirty.value){e.preventDefault();e.returnValue='有未保存修改，确定离开？';return e.returnValue;}
+          });
+          window.addEventListener('keydown', e => {
+            if ((e.ctrlKey||e.metaKey)&&e.key==='s') { e.preventDefault(); if(isFileLoaded.value)saveFile(); }
+            if ((e.ctrlKey||e.metaKey)&&e.key==='z'&&!e.shiftKey) {
+              if(['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName))return; e.preventDefault(); undo();
+            }
+            if ((e.ctrlKey||e.metaKey)&&(e.key==='y'||(e.key==='z'&&e.shiftKey)||(e.key==='Z'&&e.shiftKey))) {
+              if(['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName))return; e.preventDefault(); redo();
+            }
+            if ((e.ctrlKey||e.metaKey)&&e.key==='/') { e.preventDefault(); showShortcuts.value=!showShortcuts.value; }
+            if (e.key==='Escape') showShortcuts.value=false;
+          });
+
+          // Auto-detect same-directory file
+          const autoDetectFile = async () => {
+            try {
+              const resp = await fetch('./api_config.json', { method: 'GET', cache: 'no-cache' });
+              if (resp.ok) {
+                const text = await resp.text();
+                JSON.parse(text); // validate JSON
+                detectedFile.value = { name: 'api_config.json', text };
+              }
+            } catch(e) { /* silently ignore */ }
+          };
+          autoDetectFile();
+
+          // Drag-drop file loading
+          document.addEventListener('dragenter', e => { e.preventDefault(); dropCounter++; showDropZone.value = true; });
+          document.addEventListener('dragover', e => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; });
+          document.addEventListener('dragleave', e => { e.preventDefault(); dropCounter--; if (dropCounter <= 0) { dropCounter = 0; showDropZone.value = false; } });
+          document.addEventListener('drop', e => {
+            e.preventDefault(); dropCounter = 0; showDropZone.value = false;
+            const file = e.dataTransfer.files[0];
+            if (file && file.name.endsWith('.json')) {
+              const reader = new FileReader();
+              reader.onload = ev => { loadFromText(ev.target.result, file.name); fileHandle = null; };
+              reader.readAsText(file);
+            } else { displayToast('请拖入 .json 文件', 'warn'); }
+          });
+        });
+
+        return {
+          apis,isFileLoaded,fileName,isDirty,activeApiIndex,isDark,toggleTheme,showDropZone,detectedFile,loadDetectedFile,
+          showToast,toastType,toastMessage,openFile,saveFile,exportBackup,
+          addApi,insertApiAfter,cloneApi,removeApi,
+          dragStart,dragOver,drop,dragEnd,draggedIndex,dropTargetIndex,scrollToNode,
+          history,historyIndex,undo,redo,
+          keyVisibility,globalKeysVisible,toggleKeyVisibility,toggleAllKeys,
+          searchQuery,filteredGroups,filteredNavCount,expandedGroups,toggleGroup,
+          aiTypeCounts,duplicateCount,isDuplicateNode,
+          validationErrors,hasValidationErrors,
+          selectedIds,toggleSelect,selectAll,deselectAll,batchDelete,batchExport,
+          pingResults,pingTimes,pingNode,batchPingAll,isBatchTesting,
+          showShortcuts,markDirtyField
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

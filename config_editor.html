@@ -1,0 +1,1327 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>NekoAI - 运行时配置可视化编辑器</title>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <style>
+    :root {
+      --bg-body: #f0f2f5; --bg-card: #fff; --bg-sidebar: #fff; --bg-input: #fff;
+      --bg-card-inner: #fafafa; --bg-hover: #e6f7ff; --bg-nav: #fafafa;
+      --text-primary: #333; --text-secondary: #555; --text-muted: #888;
+      --border: #e8e8e8; --border-input: #d9d9d9;
+      --primary: #1890ff; --primary-light: #e6f7ff; --primary-border: #91d5ff;
+      --danger: #ff4d4f; --success: #52c41a; --warning: #faad14; --purple: #722ed1; --cyan: #13c2c2;
+      --shadow: rgba(0,0,0,0.05); --shadow-hover: rgba(24,144,255,0.1);
+    }
+    [data-theme="dark"] {
+      --bg-body: #1a1a2e; --bg-card: #16213e; --bg-sidebar: #16213e; --bg-input: #0f3460;
+      --bg-card-inner: #1a1a3e; --bg-hover: #0f3460; --bg-nav: #1a1a3e;
+      --text-primary: #e0e0e0; --text-secondary: #b0b0b0; --text-muted: #777;
+      --border: #2a2a4a; --border-input: #3a3a5a;
+      --shadow: rgba(0,0,0,0.3); --shadow-hover: rgba(24,144,255,0.2);
+    }
+
+    * { box-sizing: border-box; }
+    body { font-family: "Segoe UI", Roboto, Arial, sans-serif; background: var(--bg-body); margin: 0; padding: 0; color: var(--text-primary); transition: background 0.3s, color 0.3s; }
+    .app-layout { display: flex; max-width: 1400px; margin: 0 auto; gap: 16px; align-items: flex-start; padding: 16px; }
+
+    /* Sidebar */
+    .sidebar { width: 260px; background: var(--bg-sidebar); border-radius: 10px; padding: 12px; box-shadow: 0 4px 12px var(--shadow); position: sticky; top: 16px; max-height: calc(100vh - 32px); overflow-y: auto; flex-shrink: 0; z-index: 50; transition: background 0.3s; }
+    .sidebar h3 { margin: 0 0 10px 0; color: var(--primary); font-size: 15px; border-bottom: 2px solid var(--border); padding-bottom: 8px; }
+    .nav-item { padding: 8px 12px; margin-bottom: 4px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-secondary); transition: 0.2s; border: 1px solid transparent; background: transparent; user-select: none; }
+    .nav-item:hover { background: var(--bg-hover); color: var(--primary); border-color: var(--primary-border); }
+    .nav-item.active { background: var(--primary-light); color: var(--primary); border-color: var(--primary-border); font-weight: 600; }
+    [data-theme="dark"] .nav-item.active { background: #0a2540; }
+    .nav-icon { font-size: 16px; width: 22px; text-align: center; flex-shrink: 0; }
+    .nav-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+    .nav-badge { font-size: 10px; background: var(--border); padding: 1px 6px; border-radius: 8px; color: var(--text-muted); }
+
+    /* Main */
+    .main-content { flex: 1; min-width: 0; background: var(--bg-card); border-radius: 10px; box-shadow: 0 4px 12px var(--shadow); transition: background 0.3s; }
+
+    /* Header */
+    .header { padding: 14px 24px; border-bottom: 1px solid var(--border); background: var(--bg-card); position: sticky; top: 0; z-index: 100; border-radius: 10px 10px 0 0; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .header h2 { margin: 0; color: var(--primary); font-size: 18px; display: flex; align-items: center; gap: 8px; }
+    .header-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .dirty-badge { background: var(--danger); color: #fff; font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: 600; animation: pulseGlow 2s infinite; }
+
+    /* Section */
+    .config-section { padding: 24px; border-bottom: 1px solid var(--border); }
+    .config-section:last-child { border-bottom: none; }
+    .section-title { font-size: 16px; font-weight: 700; color: var(--primary); margin: 0 0 6px 0; display: flex; align-items: center; gap: 8px; }
+    .section-desc { font-size: 12px; color: var(--text-muted); margin: 0 0 16px 0; }
+
+    /* Field row */
+    .field-row { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 14px; padding: 10px 14px; background: var(--bg-card-inner); border-radius: 8px; border: 1px solid var(--border); transition: 0.2s; }
+    .field-row:hover { border-color: var(--primary-border); box-shadow: 0 1px 4px var(--shadow-hover); }
+    .field-label { width: 200px; flex-shrink: 0; padding-top: 7px; }
+    .field-label-name { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+    .field-label-desc { font-size: 11px; color: var(--text-muted); margin-top: 2px; line-height: 1.4; }
+    .field-control { flex: 1; min-width: 0; }
+
+    /* Inputs */
+    input[type="text"], input[type="number"], textarea, select {
+      width: 100%; padding: 7px 10px; border: 1px solid var(--border-input); border-radius: 6px; font-size: 13px;
+      outline: none; transition: 0.2s; font-family: inherit; background: var(--bg-input); color: var(--text-primary);
+    }
+    input:focus, textarea:focus, select:focus { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(24,144,255,0.15); }
+    textarea { resize: vertical; min-height: 60px; font-size: 12px; }
+    select { cursor: pointer; }
+
+    /* Range slider */
+    .range-group { display: flex; align-items: center; gap: 10px; }
+    .range-group input[type="range"] { flex: 1; accent-color: var(--primary); height: 6px; cursor: pointer; }
+    .range-value { min-width: 48px; text-align: center; font-size: 13px; font-weight: 600; color: var(--primary); background: var(--primary-light); padding: 3px 8px; border-radius: 6px; }
+    [data-theme="dark"] .range-value { background: #0a2540; }
+
+    /* Toggle switch */
+    .toggle-switch { position: relative; width: 44px; height: 24px; cursor: pointer; display: inline-block; }
+    .toggle-switch input { display: none; }
+    .toggle-slider { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: #ccc; border-radius: 24px; transition: 0.3s; }
+    .toggle-slider::before { content: ""; position: absolute; width: 18px; height: 18px; left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: 0.3s; }
+    .toggle-switch input:checked + .toggle-slider { background: var(--success); }
+    .toggle-switch input:checked + .toggle-slider::before { transform: translateX(20px); }
+    .toggle-label { display: flex; align-items: center; gap: 10px; }
+    .toggle-text { font-size: 12px; color: var(--text-muted); }
+
+    /* Tags (for arrays) */
+    .tag-list { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+    .tag { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; background: var(--primary-light); color: var(--primary); border: 1px solid var(--primary-border); border-radius: 14px; font-size: 12px; font-weight: 500; }
+    [data-theme="dark"] .tag { background: #0a2540; }
+    .tag-remove { cursor: pointer; font-size: 14px; color: var(--danger); font-weight: bold; line-height: 1; }
+    .tag-remove:hover { transform: scale(1.3); }
+    .tag-add-row { display: flex; gap: 6px; }
+    .tag-add-row input { flex: 1; }
+
+    /* Map entries (for objects like groupLimits) */
+    .map-entry { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; }
+    .map-entry input { flex: 1; }
+    .map-key { font-size: 12px; font-weight: 600; color: var(--text-secondary); }
+
+    /* Buttons */
+    .btn { padding: 7px 14px; border: none; border-radius: 6px; cursor: pointer; color: #fff; background: var(--primary); font-weight: 600; transition: 0.2s; font-size: 12px; display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+    .btn:hover { opacity: 0.85; transform: translateY(-1px); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    .btn-sm { padding: 4px 10px; font-size: 11px; }
+    .btn-danger { background: var(--danger); }
+    .btn-success { background: var(--success); }
+    .btn-warning { background: var(--warning); color: #333; }
+    .btn-purple { background: var(--purple); }
+    .btn-cyan { background: var(--cyan); }
+    .btn-outline { background: transparent; color: var(--primary); border: 1px solid var(--primary); }
+    .btn-outline:hover { background: var(--primary); color: #fff; }
+    .btn-ghost { background: transparent; color: var(--text-muted); border: 1px solid var(--border); }
+    .btn-ghost:hover { border-color: var(--primary); color: var(--primary); }
+    .btn-needs-save { background: var(--danger) !important; animation: pulseGlow 1.5s infinite; font-size: 13px; padding: 8px 18px; }
+
+    @keyframes pulseGlow {
+      0% { box-shadow: 0 0 0 0 rgba(255,77,79,0.7); }
+      70% { box-shadow: 0 0 0 8px rgba(255,77,79,0); }
+      100% { box-shadow: 0 0 0 0 rgba(255,77,79,0); }
+    }
+
+    /* Empty state */
+    .empty-state { text-align: center; padding: 80px 20px; }
+    .empty-state h1 { font-size: 56px; margin: 0 0 16px 0; }
+    .empty-state p { color: var(--text-muted); margin-bottom: 24px; line-height: 1.6; font-size: 14px; }
+    .btn-huge { font-size: 16px; padding: 14px 36px; border-radius: 8px; box-shadow: 0 4px 15px rgba(24,144,255,0.3); }
+
+    /* Drop zone overlay */
+    .drop-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(24,144,255,0.12); z-index: 99999; display: flex; justify-content: center; align-items: center; pointer-events: none; }
+    .drop-overlay-inner { background: var(--bg-card); border: 3px dashed var(--primary); border-radius: 16px; padding: 48px 64px; text-align: center; box-shadow: 0 8px 32px rgba(24,144,255,0.25); }
+    .drop-overlay-inner .drop-icon { font-size: 56px; margin-bottom: 12px; }
+    .drop-overlay-inner .drop-text { font-size: 18px; font-weight: 700; color: var(--primary); }
+    .drop-overlay-inner .drop-hint { font-size: 12px; color: var(--text-muted); margin-top: 6px; }
+
+    /* Toast */
+    .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: var(--success); color: #fff; padding: 10px 24px; border-radius: 8px; font-weight: 600; font-size: 13px; box-shadow: 0 4px 16px rgba(0,0,0,0.15); z-index: 9999; transition: 0.3s; }
+    .toast.error { background: var(--danger); }
+    .toast.warn { background: var(--warning); color: #333; }
+
+    /* Theme toggle */
+    .theme-toggle { background: transparent; border: 1px solid var(--border); border-radius: 50%; width: 34px; height: 34px; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: 0.2s; color: var(--text-primary); }
+    .theme-toggle:hover { border-color: var(--primary); color: var(--primary); }
+
+    /* Stats bar */
+    .stats-bar { display: flex; gap: 14px; padding: 10px 24px; border-bottom: 1px solid var(--border); font-size: 12px; color: var(--text-muted); flex-wrap: wrap; align-items: center; background: var(--bg-card-inner); }
+    .stat-item { display: flex; align-items: center; gap: 4px; }
+    .stat-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .stat-dot.on { background: var(--success); }
+    .stat-dot.off { background: var(--text-muted); }
+
+    /* Sub-card for nested objects */
+    .sub-card { border: 1px solid var(--border); border-radius: 8px; padding: 14px; background: var(--bg-card); margin-top: 4px; }
+    .sub-card .field-row { background: transparent; border: none; padding: 6px 0; margin-bottom: 6px; }
+    .sub-card .field-row:hover { box-shadow: none; }
+    .sub-card .field-label { width: 160px; }
+
+    /* Shortcuts overlay */
+    .shortcuts-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.4); z-index: 10000; display: flex; justify-content: center; align-items: center; }
+    .shortcuts-panel { background: var(--bg-card); border-radius: 10px; padding: 24px; min-width: 340px; box-shadow: 0 8px 30px rgba(0,0,0,0.2); }
+    .shortcuts-panel h3 { margin: 0 0 16px 0; color: var(--primary); }
+    .shortcut-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+    .shortcut-key { background: var(--bg-card-inner); padding: 2px 8px; border-radius: 4px; font-family: monospace; font-size: 12px; border: 1px solid var(--border); }
+
+    /* Responsive */
+    @media (max-width: 900px) {
+      .app-layout { flex-direction: column; }
+      .sidebar { width: 100%; position: static; max-height: none; }
+      .field-row { flex-direction: column; }
+      .field-label { width: 100%; padding-top: 0; }
+    }
+
+    /* Reset button in field */
+    .field-reset { font-size: 10px; color: var(--text-muted); cursor: pointer; margin-top: 4px; }
+    .field-reset:hover { color: var(--primary); }
+
+    /* Section card wrapper */
+    .section-card { scroll-margin-top: 80px; }
+
+    /* Diff indicator */
+    .field-row.modified { border-color: var(--warning); background: #fffbe6; }
+    [data-theme="dark"] .field-row.modified { background: #2a2500; }
+
+    /* Auto-detect banner */
+    .auto-detect-banner { background: linear-gradient(135deg, var(--primary-light), #f0f5ff); border: 2px solid var(--primary-border); border-radius: 12px; padding: 20px 28px; margin-top: 20px; display: flex; align-items: center; gap: 16px; box-shadow: 0 4px 16px rgba(24,144,255,0.15); animation: bannerSlideIn 0.4s ease-out; }
+    [data-theme="dark"] .auto-detect-banner { background: linear-gradient(135deg, #0a2540, #0f3460); }
+    .auto-detect-icon { font-size: 36px; flex-shrink: 0; }
+    .auto-detect-info { flex: 1; }
+    .auto-detect-info .detect-title { font-size: 14px; font-weight: 700; color: var(--primary); margin-bottom: 4px; }
+    .auto-detect-info .detect-file { font-size: 12px; color: var(--text-secondary); font-family: monospace; background: var(--bg-card-inner); padding: 2px 8px; border-radius: 4px; }
+    .auto-detect-actions { display: flex; gap: 8px; flex-shrink: 0; }
+    @keyframes bannerSlideIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="app-layout">
+      <!-- Sidebar -->
+      <div class="sidebar" v-if="isLoaded">
+        <h3>&#9881; 配置导航</h3>
+        <div v-for="sec in sections" :key="sec.id"
+             class="nav-item" :class="{active: activeSection === sec.id}"
+             @click="scrollTo(sec.id)">
+          <span class="nav-icon">{{ sec.icon }}</span>
+          <span class="nav-label">{{ sec.label }}</span>
+          <span class="nav-badge" v-if="sec.badge">{{ sec.badge }}</span>
+        </div>
+        <div style="border-top: 1px solid var(--border); margin-top: 10px; padding-top: 10px;">
+          <div class="nav-item" @click="showShortcuts = true">
+            <span class="nav-icon">&#9000;</span>
+            <span class="nav-label">快捷键</span>
+          </div>
+          <div class="nav-item" @click="resetAll">
+            <span class="nav-icon">&#8634;</span>
+            <span class="nav-label" style="color: var(--danger);">恢复全部默认值</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Content -->
+      <div class="main-content">
+        <!-- Header -->
+        <div class="header">
+          <h2>
+            &#128049; NekoAI 运行时配置编辑器
+            <span class="dirty-badge" v-if="isDirty">未保存</span>
+          </h2>
+          <div class="header-actions">
+            <button class="btn btn-outline" @click="loadFile" v-if="!isLoaded">&#128194; 加载 runtime_config.json</button>
+            <template v-if="isLoaded">
+              <button class="btn btn-ghost" @click="loadFile">&#128194; 重新加载</button>
+              <button :class="['btn', isDirty ? 'btn-needs-save' : 'btn-success']" @click="saveFile">
+                &#128190; {{ isDirty ? '保存修改！' : '导出保存' }}
+              </button>
+            </template>
+            <button class="theme-toggle" @click="toggleTheme">{{ darkMode ? '&#9728;' : '&#127769;' }}</button>
+          </div>
+        </div>
+
+        <!-- Stats bar -->
+        <div class="stats-bar" v-if="isLoaded">
+          <span class="stat-item"><span class="stat-dot" :class="cfg.smartRouter?.enabled ? 'on':'off'"></span> 智能路由</span>
+          <span class="stat-item"><span class="stat-dot" :class="cfg.memorySummary?.enabled ? 'on':'off'"></span> 记忆压缩</span>
+          <span class="stat-item"><span class="stat-dot" :class="cfg.enableMemes ? 'on':'off'"></span> 表情包</span>
+          <span class="stat-item">&#127919; 模型#{{ cfg.activeApiIndex }}</span>
+          <span class="stat-item">&#128100; 群人格#{{ cfg.activeGroupPersonalityIndex }}</span>
+          <span class="stat-item">&#128172; 私聊人格#{{ cfg.activePrivatePersonalityIndex }}</span>
+          <span class="stat-item">&#128101; {{ (cfg.groups||[]).length }} 个群</span>
+          <span class="stat-item">&#128683; {{ (cfg.userBlacklist||[]).length }} 黑名单</span>
+          <span class="stat-item">&#128196; 日志级别: {{ cfg.logLevel || 'debug' }}</span>
+        </div>
+
+        <!-- Empty state -->
+        <div class="empty-state" v-if="!isLoaded">
+          <h1>&#128049;</h1>
+          <p>NekoAI 运行时配置可视化编辑器<br>
+            加载你的 <code>runtime_config.json</code> 开始编辑，所见即所得。<br>
+            <small style="color:var(--text-muted)">Ctrl+O 加载 &middot; Ctrl+S 保存 &middot; ? 快捷键 &middot; 支持拖拽文件</small>
+          </p>
+          <button class="btn btn-huge" @click="loadFile">&#128194; 加载 runtime_config.json</button>
+
+          <!-- Auto-detect banner -->
+          <div class="auto-detect-banner" v-if="detectedFile">
+            <span class="auto-detect-icon">&#128269;</span>
+            <div class="auto-detect-info">
+              <div class="detect-title">已检测到当前目录下的配置文件</div>
+              <div class="detect-file">{{ detectedFile.name }}</div>
+            </div>
+            <div class="auto-detect-actions">
+              <button class="btn btn-success" @click="loadDetectedFile">&#10004; 确认加载</button>
+              <button class="btn btn-ghost" @click="detectedFile=null">忽略</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Config sections -->
+        <template v-if="isLoaded">
+
+          <!-- ===== 核心设置 ===== -->
+          <div class="config-section section-card" id="sec-core">
+            <h3 class="section-title">&#127968; 核心设置</h3>
+            <p class="section-desc">机器人身份与基本运行参数</p>
+
+            <div class="field-row">
+              <div class="field-label">
+                <div class="field-label-name">nickName</div>
+                <div class="field-label-desc">机器人昵称，用于@检测和语境代入</div>
+              </div>
+              <div class="field-control">
+                <input type="text" v-model="cfg.nickName" @input="markDirty">
+              </div>
+            </div>
+
+            <div class="field-row">
+              <div class="field-label">
+                <div class="field-label-name">masterQQ</div>
+                <div class="field-label-desc">主人QQ号列表，拥有全部高级权限</div>
+              </div>
+              <div class="field-control">
+                <div class="tag-list">
+                  <span class="tag" v-for="(qq, i) in cfg.masterQQ" :key="'master'+i">
+                    {{ qq }} <span class="tag-remove" @click="removeFromArray(cfg.masterQQ, i)">&times;</span>
+                  </span>
+                </div>
+                <div class="tag-add-row">
+                  <input type="text" v-model="inputs.masterQQ" placeholder="输入QQ号" @keyup.enter="addToArray(cfg.masterQQ, 'masterQQ')">
+                  <button class="btn btn-sm" @click="addToArray(cfg.masterQQ, 'masterQQ')">添加</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="field-row">
+              <div class="field-label">
+                <div class="field-label-name">privateRefuse</div>
+                <div class="field-label-desc">非授权用户私聊时的拒绝回复语</div>
+              </div>
+              <div class="field-control">
+                <input type="text" v-model="cfg.privateRefuse" @input="markDirty">
+              </div>
+            </div>
+
+            <div class="field-row">
+              <div class="field-label">
+                <div class="field-label-name">logLevel</div>
+                <div class="field-label-desc">日志输出级别</div>
+              </div>
+              <div class="field-control">
+                <select v-model="cfg.logLevel" @change="markDirty">
+                  <option value="debug">debug — 全部输出</option>
+                  <option value="info">info — 常规信息</option>
+                  <option value="warn">warn — 仅警告+错误</option>
+                  <option value="error">error — 仅错误</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- ===== 活跃索引 ===== -->
+          <div class="config-section section-card" id="sec-indices">
+            <h3 class="section-title">&#127919; 活跃节点 / 人格</h3>
+            <p class="section-desc">全局默认使用的 API 节点和人格编号（从 0 开始）</p>
+
+            <div class="field-row">
+              <div class="field-label">
+                <div class="field-label-name">activeApiIndex</div>
+                <div class="field-label-desc">当前使用的 API 节点编号</div>
+              </div>
+              <div class="field-control">
+                <input type="number" v-model.number="cfg.activeApiIndex" min="0" @input="markDirty">
+              </div>
+            </div>
+
+            <div class="field-row">
+              <div class="field-label">
+                <div class="field-label-name">activeGroupPersonalityIndex</div>
+                <div class="field-label-desc">当前使用的群聊人格编号</div>
+              </div>
+              <div class="field-control">
+                <input type="number" v-model.number="cfg.activeGroupPersonalityIndex" min="0" @input="markDirty">
+              </div>
+            </div>
+
+            <div class="field-row">
+              <div class="field-label">
+                <div class="field-label-name">activePrivatePersonalityIndex</div>
+                <div class="field-label-desc">当前使用的私聊人格编号</div>
+              </div>
+              <div class="field-control">
+                <input type="number" v-model.number="cfg.activePrivatePersonalityIndex" min="0" @input="markDirty">
+              </div>
+            </div>
+          </div>
+
+          <!-- ===== 群聊与用户 ===== -->
+          <div class="config-section section-card" id="sec-groups">
+            <h3 class="section-title">&#128101; 群聊与用户管理</h3>
+            <p class="section-desc">管理监听的群号、私聊白名单和黑名单</p>
+
+            <div class="field-row">
+              <div class="field-label">
+                <div class="field-label-name">groups</div>
+                <div class="field-label-desc">允许机器人监听和回复的群号列表</div>
+              </div>
+              <div class="field-control">
+                <div class="tag-list">
+                  <span class="tag" v-for="(g, i) in cfg.groups" :key="'grp'+i">
+                    {{ g }} <span class="tag-remove" @click="removeFromArray(cfg.groups, i)">&times;</span>
+                  </span>
+                </div>
+                <div class="tag-add-row">
+                  <input type="text" v-model="inputs.groups" placeholder="输入群号" @keyup.enter="addToArray(cfg.groups, 'groups')">
+                  <button class="btn btn-sm" @click="addToArray(cfg.groups, 'groups')">添加</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="field-row">
+              <div class="field-label">
+                <div class="field-label-name">allowPrivateTalkingUsers</div>
+                <div class="field-label-desc">允许私聊的用户白名单</div>
+              </div>
+              <div class="field-control">
+                <div class="tag-list">
+                  <span class="tag" v-for="(u, i) in cfg.allowPrivateTalkingUsers" :key="'priv'+i">
+                    {{ u }} <span class="tag-remove" @click="removeFromArray(cfg.allowPrivateTalkingUsers, i)">&times;</span>
+                  </span>
+                </div>
+                <div class="tag-add-row">
+                  <input type="text" v-model="inputs.allowPrivateTalkingUsers" placeholder="输入QQ号" @keyup.enter="addToArray(cfg.allowPrivateTalkingUsers, 'allowPrivateTalkingUsers')">
+                  <button class="btn btn-sm" @click="addToArray(cfg.allowPrivateTalkingUsers, 'allowPrivateTalkingUsers')">添加</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="field-row">
+              <div class="field-label">
+                <div class="field-label-name">userBlacklist</div>
+                <div class="field-label-desc">用户黑名单，完全屏蔽这些用户</div>
+              </div>
+              <div class="field-control">
+                <div class="tag-list">
+                  <span class="tag" v-for="(u, i) in cfg.userBlacklist" :key="'bl'+i" style="border-color: var(--danger); color: var(--danger); background: #fff2f0;">
+                    {{ u }} <span class="tag-remove" @click="removeFromArray(cfg.userBlacklist, i)">&times;</span>
+                  </span>
+                </div>
+                <div class="tag-add-row">
+                  <input type="text" v-model="inputs.userBlacklist" placeholder="输入QQ号" @keyup.enter="addToArray(cfg.userBlacklist, 'userBlacklist')">
+                  <button class="btn btn-sm btn-danger" @click="addToArray(cfg.userBlacklist, 'userBlacklist')">添加</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="field-row">
+              <div class="field-label">
+                <div class="field-label-name">groupLimits</div>
+                <div class="field-label-desc">群聊12小时调用次数限制<br>格式：{ 群号: 限制次数 }</div>
+              </div>
+              <div class="field-control">
+                <div class="map-entry" v-for="(val, key) in cfg.groupLimits" :key="'gl'+key">
+                  <input type="text" :value="key" disabled style="flex:0.6; opacity:0.7; font-weight:600;">
+                  <input type="number" :value="val" min="0" @input="updateMap(cfg.groupLimits, key, $event)" style="flex:0.4;">
+                  <button class="btn btn-sm btn-danger" @click="removeMapKey(cfg.groupLimits, key)">&#10005;</button>
+                </div>
+                <div class="tag-add-row" style="margin-top: 6px;">
+                  <input type="text" v-model="inputs.groupLimitKey" placeholder="群号" style="flex:0.6;">
+                  <input type="number" v-model.number="inputs.groupLimitVal" placeholder="次数" min="1" style="flex:0.4;">
+                  <button class="btn btn-sm" @click="addMapEntry('groupLimits')">添加</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ===== 消息行为 ===== -->
+          <div class="config-section section-card" id="sec-message">
+            <h3 class="section-title">&#128172; 消息行为</h3>
+            <p class="section-desc">群聊上下文、话痨模式、冷却时间等消息处理参数</p>
+
+            <div class="field-row">
+              <div class="field-label">
+                <div class="field-label-name">maxGroupMessages</div>
+                <div class="field-label-desc">群聊历史上下文最大条数</div>
+              </div>
+              <div class="field-control">
+                <input type="number" v-model.number="cfg.maxGroupMessages" min="1" max="200" @input="markDirty">
+              </div>
+            </div>
+
+            <div class="field-row">
+              <div class="field-label">
+                <div class="field-label-name">singleMaxMessages</div>
+                <div class="field-label-desc">私聊历史上下文上限</div>
+              </div>
+              <div class="field-control">
+                <input type="number" v-model.number="cfg.singleMaxMessages" min="1" max="200" @input="markDirty">
+              </div>
+            </div>
+
+            <div class="field-row">
+              <div class="field-label">
+                <div class="field-label-name">randomReply</div>
+                <div class="field-label-desc">话痨模式触发概率 (0~1)</div>
+              </div>
+              <div class="field-control">
+                <div class="range-group">
+                  <input type="range" v-model.number="cfg.randomReply" min="0" max="1" step="0.01" @input="markDirty">
+                  <span class="range-value">{{ (cfg.randomReply || 0).toFixed(2) }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="field-row">
+              <div class="field-label">
+                <div class="field-label-name">messagesLength</div>
+                <div class="field-label-desc">话痨模式：每累积多少条消息检测一次</div>
+              </div>
+              <div class="field-control">
+                <input type="number" v-model.number="cfg.messagesLength" min="1" @input="markDirty">
+              </div>
+            </div>
+
+            <div class="field-row">
+              <div class="field-label">
+                <div class="field-label-name">sleepTime</div>
+                <div class="field-label-desc">话痨模式冷却间隔 (ms)</div>
+              </div>
+              <div class="field-control">
+                <input type="number" v-model.number="cfg.sleepTime" min="0" step="100" @input="markDirty">
+              </div>
+            </div>
+
+            <div class="field-row">
+              <div class="field-label">
+                <div class="field-label-name">singleAskSleep</div>
+                <div class="field-label-desc">群聊@后个人冷却 (ms)</div>
+              </div>
+              <div class="field-control">
+                <input type="number" v-model.number="cfg.singleAskSleep" min="0" step="100" @input="markDirty">
+              </div>
+            </div>
+
+            <div class="field-row">
+              <div class="field-label">
+                <div class="field-label-name">singleTalkWaiting</div>
+                <div class="field-label-desc">私聊防吞字等待时间 (ms)</div>
+              </div>
+              <div class="field-control">
+                <input type="number" v-model.number="cfg.singleTalkWaiting" min="0" step="100" @input="markDirty">
+              </div>
+            </div>
+
+            <div class="field-row">
+              <div class="field-label">
+                <div class="field-label-name">eachLetterCost</div>
+                <div class="field-label-desc">模拟打字延迟：每字等候 (ms)</div>
+              </div>
+              <div class="field-control">
+                <input type="number" v-model.number="cfg.eachLetterCost" min="0" @input="markDirty">
+              </div>
+            </div>
+
+            <div class="field-row">
+              <div class="field-label">
+                <div class="field-label-name">groupMentionWait</div>
+                <div class="field-label-desc">群聊@合并等待 (ms)，0=不等待</div>
+              </div>
+              <div class="field-control">
+                <input type="number" v-model.number="cfg.groupMentionWait" min="0" step="100" @input="markDirty">
+              </div>
+            </div>
+
+            <div class="field-row">
+              <div class="field-label">
+                <div class="field-label-name">contextAutoForgetMs</div>
+                <div class="field-label-desc">上下文闲置自动清空时间 (ms)，0=关闭</div>
+              </div>
+              <div class="field-control">
+                <input type="number" v-model.number="cfg.contextAutoForgetMs" min="0" step="1000" @input="markDirty">
+              </div>
+            </div>
+          </div>
+
+          <!-- ===== 合并转发 ===== -->
+          <div class="config-section section-card" id="sec-forward">
+            <h3 class="section-title">&#128230; 合并转发</h3>
+            <p class="section-desc">控制长消息是否合并为转发消息发送</p>
+
+            <div class="field-row">
+              <div class="field-label">
+                <div class="field-label-name">forwardStrategy</div>
+                <div class="field-label-desc">合并转发策略</div>
+              </div>
+              <div class="field-control">
+                <select v-model="cfg.forwardStrategy" @change="markDirty">
+                  <option value="auto">auto — 自动判断</option>
+                  <option value="on">on — 强制合并</option>
+                  <option value="off">off — 强制关闭</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="field-row">
+              <div class="field-label">
+                <div class="field-label-name">forwardModelList</div>
+                <div class="field-label-desc">模型列表以合并转发形式输出</div>
+              </div>
+              <div class="field-control">
+                <label class="toggle-label">
+                  <label class="toggle-switch">
+                    <input type="checkbox" v-model="cfg.forwardModelList" @change="markDirty">
+                    <span class="toggle-slider"></span>
+                  </label>
+                  <span class="toggle-text">{{ cfg.forwardModelList ? '开启' : '关闭' }}</span>
+                </label>
+              </div>
+            </div>
+
+            <div class="field-row">
+              <div class="field-label">
+                <div class="field-label-name">forwardMaxLength</div>
+                <div class="field-label-desc">触发合并的总字数阈值</div>
+              </div>
+              <div class="field-control">
+                <input type="number" v-model.number="cfg.forwardMaxLength" min="1" @input="markDirty">
+              </div>
+            </div>
+
+            <div class="field-row">
+              <div class="field-label">
+                <div class="field-label-name">forwardMaxSegments</div>
+                <div class="field-label-desc">触发合并的分段数阈值</div>
+              </div>
+              <div class="field-control">
+                <input type="number" v-model.number="cfg.forwardMaxSegments" min="1" @input="markDirty">
+              </div>
+            </div>
+          </div>
+
+          <!-- ===== 表情包 ===== -->
+          <div class="config-section section-card" id="sec-memes">
+            <h3 class="section-title">&#128568; 表情包</h3>
+            <p class="section-desc">本地表情包功能开关与路径配置</p>
+
+            <div class="field-row">
+              <div class="field-label">
+                <div class="field-label-name">enableMemes</div>
+                <div class="field-label-desc">启用表情包功能</div>
+              </div>
+              <div class="field-control">
+                <label class="toggle-label">
+                  <label class="toggle-switch">
+                    <input type="checkbox" v-model="cfg.enableMemes" @change="markDirty">
+                    <span class="toggle-slider"></span>
+                  </label>
+                  <span class="toggle-text">{{ cfg.enableMemes ? '已启用' : '已关闭' }}</span>
+                </label>
+              </div>
+            </div>
+
+            <div class="field-row">
+              <div class="field-label">
+                <div class="field-label-name">memesPath</div>
+                <div class="field-label-desc">表情包文件夹路径</div>
+              </div>
+              <div class="field-control">
+                <input type="text" v-model="cfg.memesPath" @input="markDirty" placeholder="例如: neko_memes 或绝对路径">
+              </div>
+            </div>
+
+            <div class="field-row">
+              <div class="field-label">
+                <div class="field-label-name">memeProb</div>
+                <div class="field-label-desc">表情包触发概率 (0~1)</div>
+              </div>
+              <div class="field-control">
+                <div class="range-group">
+                  <input type="range" v-model.number="cfg.memeProb" min="0" max="1" step="0.01" @input="markDirty">
+                  <span class="range-value">{{ (cfg.memeProb || 0).toFixed(2) }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ===== 智能路由 ===== -->
+          <div class="config-section section-card" id="sec-router">
+            <h3 class="section-title">&#128256; 智能路由</h3>
+            <p class="section-desc">API 节点故障自动转移与负载均衡配置</p>
+
+            <div class="field-row">
+              <div class="field-label">
+                <div class="field-label-name">smartRouter.enabled</div>
+                <div class="field-label-desc">启用智能路由<br>关闭时仅使用固定节点</div>
+              </div>
+              <div class="field-control">
+                <label class="toggle-label">
+                  <label class="toggle-switch">
+                    <input type="checkbox" v-model="cfg.smartRouter.enabled" @change="markDirty">
+                    <span class="toggle-slider"></span>
+                  </label>
+                  <span class="toggle-text">{{ cfg.smartRouter.enabled ? '已启用' : '已关闭' }}</span>
+                </label>
+              </div>
+            </div>
+
+            <div class="field-row">
+              <div class="field-label">
+                <div class="field-label-name">smartRouter.mode</div>
+                <div class="field-label-desc">路由策略模式</div>
+              </div>
+              <div class="field-control">
+                <select v-model="cfg.smartRouter.mode" @change="markDirty">
+                  <option value="failover">failover — 按顺序故障转移</option>
+                  <option value="round-robin">round-robin — 全局轮询</option>
+                  <option value="random">random — 随机选择</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="field-row">
+              <div class="field-label">
+                <div class="field-label-name">smartRouter.retryCount</div>
+                <div class="field-label-desc">最大重试次数</div>
+              </div>
+              <div class="field-control">
+                <input type="number" v-model.number="cfg.smartRouter.retryCount" min="0" max="10" @input="markDirty">
+              </div>
+            </div>
+
+            <div class="field-row">
+              <div class="field-label">
+                <div class="field-label-name">smartRouter.retryDelay</div>
+                <div class="field-label-desc">重试间隔 (ms)</div>
+              </div>
+              <div class="field-control">
+                <input type="number" v-model.number="cfg.smartRouter.retryDelay" min="0" step="500" @input="markDirty">
+              </div>
+            </div>
+
+            <div class="field-row">
+              <div class="field-label">
+                <div class="field-label-name">smartRouter.excludeIndices</div>
+                <div class="field-label-desc">排除的节点编号（路由时跳过）</div>
+              </div>
+              <div class="field-control">
+                <div class="tag-list">
+                  <span class="tag" v-for="(idx, i) in cfg.smartRouter.excludeIndices" :key="'excl'+i">
+                    #{{ idx }} <span class="tag-remove" @click="removeFromArray(cfg.smartRouter.excludeIndices, i)">&times;</span>
+                  </span>
+                </div>
+                <div class="tag-add-row">
+                  <input type="number" v-model.number="inputs.excludeIdx" placeholder="节点编号" min="0">
+                  <button class="btn btn-sm" @click="addExcludeIndex">添加</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ===== API 参数 ===== -->
+          <div class="config-section section-card" id="sec-apiparams">
+            <h3 class="section-title">&#9881; API 请求参数</h3>
+            <p class="section-desc">temperature、max_tokens 等大模型调用参数</p>
+
+            <div class="field-row">
+              <div class="field-label">
+                <div class="field-label-name">apiParams.temperature</div>
+                <div class="field-label-desc">生成随机性 (0=确定 ~ 2=随机)</div>
+              </div>
+              <div class="field-control">
+                <div class="range-group">
+                  <input type="range" v-model.number="cfg.apiParams.temperature" min="0" max="2" step="0.01" @input="markDirty">
+                  <span class="range-value">{{ (cfg.apiParams.temperature || 0).toFixed(2) }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="field-row">
+              <div class="field-label">
+                <div class="field-label-name">apiParams.maxTokens</div>
+                <div class="field-label-desc">OpenAI 格式最大 Token 数</div>
+              </div>
+              <div class="field-control">
+                <input type="number" v-model.number="cfg.apiParams.maxTokens" min="1" step="1000" @input="markDirty">
+              </div>
+            </div>
+
+            <div class="field-row">
+              <div class="field-label">
+                <div class="field-label-name">apiParams.anthropicMaxTokens</div>
+                <div class="field-label-desc">Anthropic (Claude) 最大 Token</div>
+              </div>
+              <div class="field-control">
+                <input type="number" v-model.number="cfg.apiParams.anthropicMaxTokens" min="1" step="1000" @input="markDirty">
+              </div>
+            </div>
+
+            <div class="field-row">
+              <div class="field-label">
+                <div class="field-label-name">apiParams.geminiMaxTokens</div>
+                <div class="field-label-desc">Gemini 最大输出 Token</div>
+              </div>
+              <div class="field-control">
+                <input type="number" v-model.number="cfg.apiParams.geminiMaxTokens" min="1" step="1000" @input="markDirty">
+              </div>
+            </div>
+          </div>
+
+          <!-- ===== 记忆系统 ===== -->
+          <div class="config-section section-card" id="sec-memory">
+            <h3 class="section-title">&#129504; 记忆系统</h3>
+            <p class="section-desc">长期记忆持久化与自动摘要压缩配置</p>
+
+            <div class="field-row">
+              <div class="field-label">
+                <div class="field-label-name">memorySummary.enabled</div>
+                <div class="field-label-desc">启用自动记忆摘要压缩<br>超过阈值时 AI 自动总结旧消息</div>
+              </div>
+              <div class="field-control">
+                <label class="toggle-label">
+                  <label class="toggle-switch">
+                    <input type="checkbox" v-model="cfg.memorySummary.enabled" @change="markDirty">
+                    <span class="toggle-slider"></span>
+                  </label>
+                  <span class="toggle-text">{{ cfg.memorySummary.enabled ? '已启用' : '已关闭' }}</span>
+                </label>
+              </div>
+            </div>
+
+            <div class="field-row">
+              <div class="field-label">
+                <div class="field-label-name">memorySummary.threshold</div>
+                <div class="field-label-desc">触发压缩的消息条数阈值</div>
+              </div>
+              <div class="field-control">
+                <input type="number" v-model.number="cfg.memorySummary.threshold" min="5" @input="markDirty">
+              </div>
+            </div>
+
+            <div class="field-row">
+              <div class="field-label">
+                <div class="field-label-name">memorySummary.summaryPrompt</div>
+                <div class="field-label-desc">发给 AI 的摘要指令</div>
+              </div>
+              <div class="field-control">
+                <textarea v-model="cfg.memorySummary.summaryPrompt" @input="markDirty" rows="3"></textarea>
+              </div>
+            </div>
+          </div>
+
+          <!-- ===== 请求队列 ===== -->
+          <div class="config-section section-card" id="sec-queue">
+            <h3 class="section-title">&#128203; 请求队列</h3>
+            <p class="section-desc">并发控制，防止高峰期 API 雪崩</p>
+
+            <div class="field-row">
+              <div class="field-label">
+                <div class="field-label-name">requestQueue.maxConcurrent</div>
+                <div class="field-label-desc">最大并发 API 请求数</div>
+              </div>
+              <div class="field-control">
+                <input type="number" v-model.number="cfg.requestQueue.maxConcurrent" min="1" max="20" @input="markDirty">
+              </div>
+            </div>
+          </div>
+
+          <!-- ===== 按群绑定 ===== -->
+          <div class="config-section section-card" id="sec-binding">
+            <h3 class="section-title">&#128279; 按群独立绑定</h3>
+            <p class="section-desc">为不同群聊绑定不同的人格或 API 模型（不设置则使用全局默认值）</p>
+
+            <div class="field-row">
+              <div class="field-label">
+                <div class="field-label-name">groupPersonalityMap</div>
+                <div class="field-label-desc">按群独立人格<br>{ 群号: 人格编号 }</div>
+              </div>
+              <div class="field-control">
+                <div class="map-entry" v-for="(val, key) in cfg.groupPersonalityMap" :key="'gpm'+key">
+                  <input type="text" :value="key" disabled style="flex:0.6; opacity:0.7; font-weight:600;">
+                  <input type="number" :value="val" min="0" @input="updateMap(cfg.groupPersonalityMap, key, $event)" style="flex:0.4;">
+                  <button class="btn btn-sm btn-danger" @click="removeMapKey(cfg.groupPersonalityMap, key)">&#10005;</button>
+                </div>
+                <div v-if="Object.keys(cfg.groupPersonalityMap || {}).length === 0" style="font-size: 12px; color: var(--text-muted); margin-bottom: 6px;">暂无绑定，所有群使用全局默认人格</div>
+                <div class="tag-add-row" style="margin-top: 6px;">
+                  <input type="text" v-model="inputs.gpmKey" placeholder="群号" style="flex:0.6;">
+                  <input type="number" v-model.number="inputs.gpmVal" placeholder="人格编号" min="0" style="flex:0.4;">
+                  <button class="btn btn-sm" @click="addMapEntry('groupPersonalityMap')">添加</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="field-row">
+              <div class="field-label">
+                <div class="field-label-name">groupApiMap</div>
+                <div class="field-label-desc">按群独立模型<br>{ 群号: API节点编号 }</div>
+              </div>
+              <div class="field-control">
+                <div class="map-entry" v-for="(val, key) in cfg.groupApiMap" :key="'gam'+key">
+                  <input type="text" :value="key" disabled style="flex:0.6; opacity:0.7; font-weight:600;">
+                  <input type="number" :value="val" min="0" @input="updateMap(cfg.groupApiMap, key, $event)" style="flex:0.4;">
+                  <button class="btn btn-sm btn-danger" @click="removeMapKey(cfg.groupApiMap, key)">&#10005;</button>
+                </div>
+                <div v-if="Object.keys(cfg.groupApiMap || {}).length === 0" style="font-size: 12px; color: var(--text-muted); margin-bottom: 6px;">暂无绑定，所有群使用全局默认模型</div>
+                <div class="tag-add-row" style="margin-top: 6px;">
+                  <input type="text" v-model="inputs.gamKey" placeholder="群号" style="flex:0.6;">
+                  <input type="number" v-model.number="inputs.gamVal" placeholder="API编号" min="0" style="flex:0.4;">
+                  <button class="btn btn-sm" @click="addMapEntry('groupApiMap')">添加</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </template>
+      </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" v-if="toast.show" :class="toast.type" @click="toast.show=false">{{ toast.msg }}</div>
+
+    <!-- Shortcuts overlay -->
+    <div class="shortcuts-overlay" v-if="showShortcuts" @click.self="showShortcuts=false">
+      <div class="shortcuts-panel">
+        <h3>&#9000; 键盘快捷键</h3>
+        <div class="shortcut-row"><span>加载文件</span><span class="shortcut-key">Ctrl + O</span></div>
+        <div class="shortcut-row"><span>保存/导出</span><span class="shortcut-key">Ctrl + S</span></div>
+        <div class="shortcut-row"><span>切换深色模式</span><span class="shortcut-key">Ctrl + D</span></div>
+        <div class="shortcut-row"><span>快捷键面板</span><span class="shortcut-key">?</span></div>
+        <div style="margin-top: 14px; text-align: right;">
+          <button class="btn btn-ghost" @click="showShortcuts=false">关闭</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Drop overlay -->
+    <div class="drop-overlay" v-if="showDropZone">
+      <div class="drop-overlay-inner">
+        <div class="drop-icon">&#128230;</div>
+        <div class="drop-text">释放文件以加载</div>
+        <div class="drop-hint">支持 runtime_config.json</div>
+      </div>
+    </div>
+
+    <!-- Hidden file input -->
+    <input type="file" ref="fileInput" accept=".json" style="display:none" @change="onFileSelected">
+  </div>
+
+  <script>
+    const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick, watch } = Vue;
+
+    createApp({
+      setup() {
+        const isLoaded = ref(false);
+        const isDirty = ref(false);
+        const darkMode = ref(false);
+        const showShortcuts = ref(false);
+        const showDropZone = ref(false);
+        const fileInput = ref(null);
+        const activeSection = ref('sec-core');
+        const originalJson = ref('');
+        const detectedFile = ref(null);
+        let dropCounter = 0;
+
+        const toast = reactive({ show: false, msg: '', type: '' });
+        let toastTimer = null;
+
+        const inputs = reactive({
+          masterQQ: '', groups: '', allowPrivateTalkingUsers: '', userBlacklist: '',
+          groupLimitKey: '', groupLimitVal: 100,
+          gpmKey: '', gpmVal: 0,
+          gamKey: '', gamVal: 0,
+          excludeIdx: 0,
+        });
+
+        // Default config structure for safe init
+        const defaultCfg = {
+          masterQQ: [], nickName: 'Neko', privateRefuse: '', logLevel: 'debug',
+          activeApiIndex: 0, activeGroupPersonalityIndex: 0, activePrivatePersonalityIndex: 0,
+          groups: [], allowPrivateTalkingUsers: [], userBlacklist: [], groupLimits: {},
+          maxGroupMessages: 20, singleMaxMessages: 40,
+          randomReply: 0.3, messagesLength: 15, sleepTime: 1000,
+          singleAskSleep: 1000, singleTalkWaiting: 500,
+          eachLetterCost: 1, groupMentionWait: 0, contextAutoForgetMs: 600000,
+          forwardStrategy: 'auto', forwardModelList: true, forwardMaxLength: 300, forwardMaxSegments: 5,
+          enableMemes: false, memesPath: '', memeProb: 1.0,
+          smartRouter: { enabled: false, mode: 'failover', retryCount: 2, retryDelay: 1000, excludeIndices: [] },
+          apiParams: { temperature: 0.65, maxTokens: 32000, anthropicMaxTokens: 4096, geminiMaxTokens: 8192 },
+          memorySummary: { enabled: false, threshold: 30, summaryPrompt: '' },
+          requestQueue: { maxConcurrent: 3 },
+          groupPersonalityMap: {}, groupApiMap: {}
+        };
+
+        const cfg = reactive(JSON.parse(JSON.stringify(defaultCfg)));
+
+        const sections = computed(() => [
+          { id: 'sec-core', icon: '\u{1F3E0}', label: '核心设置' },
+          { id: 'sec-indices', icon: '\u{1F3AF}', label: '活跃节点 / 人格' },
+          { id: 'sec-groups', icon: '\u{1F465}', label: '群聊与用户', badge: (cfg.groups||[]).length + '群' },
+          { id: 'sec-message', icon: '\u{1F4AC}', label: '消息行为' },
+          { id: 'sec-forward', icon: '\u{1F4E6}', label: '合并转发' },
+          { id: 'sec-memes', icon: '\u{1F638}', label: '表情包', badge: cfg.enableMemes ? '开' : '关' },
+          { id: 'sec-router', icon: '\u{1F500}', label: '智能路由', badge: cfg.smartRouter?.enabled ? '开' : '关' },
+          { id: 'sec-apiparams', icon: '\u2699', label: 'API 参数' },
+          { id: 'sec-memory', icon: '\u{1F9E0}', label: '记忆系统', badge: cfg.memorySummary?.enabled ? '开' : '关' },
+          { id: 'sec-queue', icon: '\u{1F4CB}', label: '请求队列' },
+          { id: 'sec-binding', icon: '\u{1F517}', label: '按群绑定',
+            badge: Object.keys(cfg.groupPersonalityMap||{}).length + Object.keys(cfg.groupApiMap||{}).length || '' },
+        ]);
+
+        function showToast(msg, type = '', duration = 2500) {
+          if (toastTimer) clearTimeout(toastTimer);
+          toast.msg = msg; toast.type = type; toast.show = true;
+          toastTimer = setTimeout(() => toast.show = false, duration);
+        }
+
+        function markDirty() { isDirty.value = true; }
+
+        function scrollTo(id) {
+          activeSection.value = id;
+          const el = document.getElementById(id);
+          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function toggleTheme() {
+          darkMode.value = !darkMode.value;
+          document.documentElement.setAttribute('data-theme', darkMode.value ? 'dark' : '');
+        }
+
+        function loadFile() { fileInput.value?.click(); }
+
+        function handleDroppedFile(file) {
+          if (!file) return;
+          const reader = new FileReader();
+          reader.onload = (ev) => {
+            try {
+              const raw = JSON.parse(ev.target.result);
+              mergeConfig(raw);
+              originalJson.value = JSON.stringify(buildOutput(), null, 2);
+              isLoaded.value = true;
+              isDirty.value = false;
+              showToast('\u2705 配置加载成功！', '');
+            } catch (err) {
+              showToast('\u274C JSON 解析失败: ' + err.message, 'error');
+            }
+          };
+          reader.readAsText(file);
+        }
+
+        function onFileSelected(e) {
+          const file = e.target.files[0];
+          if (!file) return;
+          handleDroppedFile(file);
+          e.target.value = '';
+        }
+
+        function mergeConfig(raw) {
+          // Merge loaded JSON into cfg, ensuring all nested objects exist
+          const simple = ['nickName','privateRefuse','logLevel','activeApiIndex','activeGroupPersonalityIndex','activePrivatePersonalityIndex',
+            'maxGroupMessages','singleMaxMessages','randomReply','messagesLength','sleepTime','singleAskSleep','singleTalkWaiting',
+            'eachLetterCost','groupMentionWait','contextAutoForgetMs','forwardStrategy','forwardModelList','forwardMaxLength','forwardMaxSegments',
+            'enableMemes','memesPath','memeProb'];
+          for (const k of simple) {
+            if (raw[k] !== undefined) cfg[k] = raw[k];
+          }
+          // Arrays
+          cfg.masterQQ = Array.isArray(raw.masterQQ) ? [...raw.masterQQ] : [];
+          cfg.groups = Array.isArray(raw.groups) ? [...raw.groups] : [];
+          cfg.allowPrivateTalkingUsers = Array.isArray(raw.allowPrivateTalkingUsers) ? [...raw.allowPrivateTalkingUsers] : [];
+          cfg.userBlacklist = Array.isArray(raw.userBlacklist) ? [...raw.userBlacklist] : [];
+          // Objects
+          cfg.groupLimits = raw.groupLimits && typeof raw.groupLimits === 'object' ? {...raw.groupLimits} : {};
+          cfg.groupPersonalityMap = raw.groupPersonalityMap && typeof raw.groupPersonalityMap === 'object' ? {...raw.groupPersonalityMap} : {};
+          cfg.groupApiMap = raw.groupApiMap && typeof raw.groupApiMap === 'object' ? {...raw.groupApiMap} : {};
+          // Nested objects with defaults
+          const sr = raw.smartRouter || {};
+          cfg.smartRouter.enabled = sr.enabled || false;
+          cfg.smartRouter.mode = sr.mode || 'failover';
+          cfg.smartRouter.retryCount = sr.retryCount !== undefined ? sr.retryCount : 2;
+          cfg.smartRouter.retryDelay = sr.retryDelay !== undefined ? sr.retryDelay : 1000;
+          cfg.smartRouter.excludeIndices = Array.isArray(sr.excludeIndices) ? [...sr.excludeIndices] : [];
+
+          const ap = raw.apiParams || {};
+          cfg.apiParams.temperature = ap.temperature !== undefined ? ap.temperature : 0.65;
+          cfg.apiParams.maxTokens = ap.maxTokens !== undefined ? ap.maxTokens : 32000;
+          cfg.apiParams.anthropicMaxTokens = ap.anthropicMaxTokens !== undefined ? ap.anthropicMaxTokens : 4096;
+          cfg.apiParams.geminiMaxTokens = ap.geminiMaxTokens !== undefined ? ap.geminiMaxTokens : 8192;
+
+          const ms = raw.memorySummary || {};
+          cfg.memorySummary.enabled = ms.enabled || false;
+          cfg.memorySummary.threshold = ms.threshold !== undefined ? ms.threshold : 30;
+          cfg.memorySummary.summaryPrompt = ms.summaryPrompt || '';
+
+          const rq = raw.requestQueue || {};
+          cfg.requestQueue.maxConcurrent = rq.maxConcurrent !== undefined ? rq.maxConcurrent : 3;
+        }
+
+        function buildOutput() {
+          // Build the output JSON, preserving _comments from original
+          const out = {};
+          // Preserve _comments if they existed
+          out._comments = {
+            masterQQ: "主人QQ号列表(字符串数组)，拥有各项高级指令的最高权限",
+            nickName: "机器人的称呼/昵称，用于防触发和语境代入",
+            activeApiIndex: "当前使用的API节点编号（对应 api_config.json 的索引，从 0 开始）",
+            activeGroupPersonalityIndex: "当前使用的群聊人格编号",
+            activePrivatePersonalityIndex: "当前使用的私聊人格编号",
+            forwardModelList: "是否以合并转发形式输出模型列表 (true/false)",
+            maxGroupMessages: "群聊时允许保留的最长历史上下文记录条数",
+            enableMemes: "是否启用本地表情包功能 (true/false)",
+            memesPath: "本地表情包文件夹的路径",
+            memeProb: "触发表情包的概率 (0-1)",
+            sleepTime: "话痨模式下冷却间隔(ms)",
+            randomReply: "话痨模式触发概率 (0-1)",
+            messagesLength: "话痨模式检测条数",
+            forwardMaxLength: "合并转发字数阈值",
+            forwardMaxSegments: "合并转发段数阈值",
+            forwardStrategy: "合并转发策略: auto/on/off",
+            eachLetterCost: "模拟打字延迟(ms/字)",
+            allowPrivateTalkingUsers: "私聊白名单",
+            groups: "监听的群号列表",
+            privateRefuse: "拒绝私聊的回复语",
+            singleAskSleep: "群聊@冷却时间(ms)",
+            singleTalkWaiting: "私聊等待时间(ms)",
+            singleMaxMessages: "私聊上下文上限",
+            groupLimits: "群聊12小时回复限制 { 群号: 次数 }",
+            logLevel: "日志级别: debug/info/warn/error",
+            userBlacklist: "用户黑名单",
+            groupPersonalityMap: "按群独立人格绑定 { 群号: 编号 }",
+            groupApiMap: "按群独立模型绑定 { 群号: 编号 }",
+            groupMentionWait: "群聊@合并等待(ms)，0=不等待",
+            contextAutoForgetMs: "上下文闲置自动清空时间(ms)，0=关闭",
+            smartRouter: "智能路由配置",
+            apiParams: "API请求参数",
+            memorySummary: "记忆摘要压缩配置",
+            requestQueue: "请求队列并发控制"
+          };
+          out.masterQQ = [...cfg.masterQQ];
+          out.nickName = cfg.nickName;
+          out.activeApiIndex = cfg.activeApiIndex;
+          out.activeGroupPersonalityIndex = cfg.activeGroupPersonalityIndex;
+          out.activePrivatePersonalityIndex = cfg.activePrivatePersonalityIndex;
+          out.forwardModelList = cfg.forwardModelList;
+          out.maxGroupMessages = cfg.maxGroupMessages;
+          out.enableMemes = cfg.enableMemes;
+          out.memesPath = cfg.memesPath;
+          out.memeProb = cfg.memeProb;
+          out.sleepTime = cfg.sleepTime;
+          out.randomReply = cfg.randomReply;
+          out.messagesLength = cfg.messagesLength;
+          out.forwardMaxLength = cfg.forwardMaxLength;
+          out.forwardMaxSegments = cfg.forwardMaxSegments;
+          out.forwardStrategy = cfg.forwardStrategy;
+          out.eachLetterCost = cfg.eachLetterCost;
+          out.allowPrivateTalkingUsers = [...cfg.allowPrivateTalkingUsers];
+          out.groups = [...cfg.groups];
+          out.privateRefuse = cfg.privateRefuse;
+          out.singleAskSleep = cfg.singleAskSleep;
+          out.singleTalkWaiting = cfg.singleTalkWaiting;
+          out.singleMaxMessages = cfg.singleMaxMessages;
+          out.groupLimits = {...cfg.groupLimits};
+          out.logLevel = cfg.logLevel;
+          out.userBlacklist = [...cfg.userBlacklist];
+          out.groupPersonalityMap = {...cfg.groupPersonalityMap};
+          out.groupApiMap = {...cfg.groupApiMap};
+          out.groupMentionWait = cfg.groupMentionWait;
+          out.contextAutoForgetMs = cfg.contextAutoForgetMs;
+          out.smartRouter = {
+            enabled: cfg.smartRouter.enabled,
+            mode: cfg.smartRouter.mode,
+            retryCount: cfg.smartRouter.retryCount,
+            retryDelay: cfg.smartRouter.retryDelay,
+            excludeIndices: [...cfg.smartRouter.excludeIndices]
+          };
+          out.apiParams = { ...cfg.apiParams };
+          out.memorySummary = {
+            enabled: cfg.memorySummary.enabled,
+            threshold: cfg.memorySummary.threshold,
+            summaryPrompt: cfg.memorySummary.summaryPrompt
+          };
+          out.requestQueue = { maxConcurrent: cfg.requestQueue.maxConcurrent };
+          return out;
+        }
+
+        function saveFile() {
+          const output = buildOutput();
+          const json = JSON.stringify(output, null, 2);
+          const blob = new Blob([json], { type: 'application/json' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url; a.download = 'runtime_config.json';
+          document.body.appendChild(a); a.click(); document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          originalJson.value = json;
+          isDirty.value = false;
+          showToast('\u2705 runtime_config.json 已导出下载！');
+        }
+
+        // Array helpers
+        function addToArray(arr, inputKey) {
+          const val = (inputs[inputKey] || '').toString().trim();
+          if (!val) { showToast('\u26A0 请输入内容', 'warn'); return; }
+          if (arr.includes(val)) { showToast('\u26A0 已存在', 'warn'); return; }
+          arr.push(val);
+          inputs[inputKey] = '';
+          markDirty();
+        }
+        function removeFromArray(arr, index) {
+          arr.splice(index, 1);
+          markDirty();
+        }
+
+        // Map helpers
+        function updateMap(map, key, event) {
+          map[key] = parseInt(event.target.value) || 0;
+          markDirty();
+        }
+        function removeMapKey(map, key) {
+          delete map[key];
+          markDirty();
+        }
+        function addMapEntry(type) {
+          if (type === 'groupLimits') {
+            const k = (inputs.groupLimitKey || '').trim();
+            if (!k) { showToast('\u26A0 请输入群号', 'warn'); return; }
+            cfg.groupLimits[k] = inputs.groupLimitVal || 100;
+            inputs.groupLimitKey = ''; inputs.groupLimitVal = 100;
+          } else if (type === 'groupPersonalityMap') {
+            const k = (inputs.gpmKey || '').trim();
+            if (!k) { showToast('\u26A0 请输入群号', 'warn'); return; }
+            cfg.groupPersonalityMap[k] = inputs.gpmVal || 0;
+            inputs.gpmKey = ''; inputs.gpmVal = 0;
+          } else if (type === 'groupApiMap') {
+            const k = (inputs.gamKey || '').trim();
+            if (!k) { showToast('\u26A0 请输入群号', 'warn'); return; }
+            cfg.groupApiMap[k] = inputs.gamVal || 0;
+            inputs.gamKey = ''; inputs.gamVal = 0;
+          }
+          markDirty();
+        }
+        function addExcludeIndex() {
+          const v = inputs.excludeIdx;
+          if (v === undefined || v === null) return;
+          if (cfg.smartRouter.excludeIndices.includes(v)) { showToast('\u26A0 已存在', 'warn'); return; }
+          cfg.smartRouter.excludeIndices.push(v);
+          inputs.excludeIdx = 0;
+          markDirty();
+        }
+
+        function resetAll() {
+          if (!confirm('确定要恢复全部默认值吗？此操作不可撤销！')) return;
+          mergeConfig(JSON.parse(JSON.stringify(defaultCfg)));
+          markDirty();
+          showToast('\u2705 已恢复全部默认值，请保存', 'warn');
+        }
+
+        // Intersection observer for sidebar active highlight
+        let observer = null;
+        onMounted(() => {
+          observer = new IntersectionObserver((entries) => {
+            for (const entry of entries) {
+              if (entry.isIntersecting) { activeSection.value = entry.target.id; break; }
+            }
+          }, { rootMargin: '-80px 0px -60% 0px', threshold: 0.1 });
+
+          // Watch for sections to appear
+          const tryObserve = () => {
+            document.querySelectorAll('.section-card').forEach(el => observer.observe(el));
+          };
+          setTimeout(tryObserve, 500);
+          watch(isLoaded, () => nextTick(() => setTimeout(tryObserve, 100)));
+        });
+        onUnmounted(() => { if (observer) observer.disconnect(); });
+
+        // Keyboard shortcuts
+        function handleKeydown(e) {
+          if (e.ctrlKey && e.key.toLowerCase() === 's') { e.preventDefault(); if (isLoaded.value) saveFile(); }
+          if (e.ctrlKey && e.key.toLowerCase() === 'o') { e.preventDefault(); loadFile(); }
+          if (e.ctrlKey && e.key.toLowerCase() === 'd') { e.preventDefault(); toggleTheme(); }
+          if (e.key === '?' && !e.ctrlKey && !e.altKey && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') { showShortcuts.value = !showShortcuts.value; }
+          if (e.key === 'Escape') { showShortcuts.value = false; }
+        }
+        onMounted(() => window.addEventListener('keydown', handleKeydown));
+        onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
+
+        // Warn on unload if dirty
+        onMounted(() => {
+          window.addEventListener('beforeunload', (e) => {
+            if (isDirty.value) { e.preventDefault(); e.returnValue = ''; }
+          });
+        });
+
+        // Auto-detect same-directory file
+        async function autoDetectFile() {
+          try {
+            const resp = await fetch('./runtime_config.json', { method: 'GET', cache: 'no-cache' });
+            if (resp.ok) {
+              const text = await resp.text();
+              JSON.parse(text); // validate JSON
+              detectedFile.value = { name: 'runtime_config.json', text };
+            }
+          } catch(e) { /* silently ignore — file:// or not found */ }
+        }
+        function loadDetectedFile() {
+          if (!detectedFile.value) return;
+          try {
+            const raw = JSON.parse(detectedFile.value.text);
+            mergeConfig(raw);
+            originalJson.value = JSON.stringify(buildOutput(), null, 2);
+            isLoaded.value = true;
+            isDirty.value = false;
+            showToast('\u2705 已自动加载 ' + detectedFile.value.name);
+            detectedFile.value = null;
+          } catch(err) { showToast('\u274C 解析失败: ' + err.message, 'error'); }
+        }
+        onMounted(() => { autoDetectFile(); });
+
+        // Drag-drop file loading
+        function onDragEnter(e) { e.preventDefault(); dropCounter++; showDropZone.value = true; }
+        function onDragOver(e) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; }
+        function onDragLeave(e) { e.preventDefault(); dropCounter--; if (dropCounter <= 0) { dropCounter = 0; showDropZone.value = false; } }
+        function onDrop(e) {
+          e.preventDefault(); dropCounter = 0; showDropZone.value = false;
+          const file = e.dataTransfer.files[0];
+          if (file && file.name.endsWith('.json')) { handleDroppedFile(file); }
+          else { showToast('\u26A0 请拖入 .json 文件', 'warn'); }
+        }
+        onMounted(() => {
+          document.addEventListener('dragenter', onDragEnter);
+          document.addEventListener('dragover', onDragOver);
+          document.addEventListener('dragleave', onDragLeave);
+          document.addEventListener('drop', onDrop);
+        });
+        onUnmounted(() => {
+          document.removeEventListener('dragenter', onDragEnter);
+          document.removeEventListener('dragover', onDragOver);
+          document.removeEventListener('dragleave', onDragLeave);
+          document.removeEventListener('drop', onDrop);
+        });
+
+        return {
+          isLoaded, isDirty, darkMode, showShortcuts, showDropZone, fileInput, activeSection,
+          toast, inputs, cfg, sections, detectedFile, loadDetectedFile,
+          showToast, markDirty, scrollTo, toggleTheme, loadFile, onFileSelected, saveFile,
+          addToArray, removeFromArray, updateMap, removeMapKey, addMapEntry, addExcludeIndex, resetAll
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

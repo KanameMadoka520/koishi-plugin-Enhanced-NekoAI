@@ -1,0 +1,533 @@
+{
+  "schemaVersion": 1,
+  "plugin": "nekoai",
+  "sections": [
+    {
+      "id": "core",
+      "title": "核心设置",
+      "summary": "昵称、主人账号、拒绝文案与日志级别。",
+      "mode": "both",
+      "fields": ["nickName", "masterQQ", "privateRefuse", "logLevel"]
+    },
+    {
+      "id": "active",
+      "title": "活跃节点/人格",
+      "summary": "当前生效的 API 与人格索引。",
+      "mode": "both",
+      "fields": ["activeApiIndex", "activeGroupPersonalityIndex", "activePrivatePersonalityIndex"]
+    },
+    {
+      "id": "groups",
+      "title": "群聊与用户",
+      "summary": "监听群组、白名单、黑名单与群限流。",
+      "mode": "both",
+      "fields": ["groups", "allowPrivateTalkingUsers", "userBlacklist", "groupLimits"]
+    },
+    {
+      "id": "messages",
+      "title": "消息行为",
+      "summary": "上下文条数、等待时间、随机回复和打字节奏。",
+      "mode": "both",
+      "fields": ["maxGroupMessages", "singleMaxMessages", "randomReply", "messagesLength", "sleepTime", "singleAskSleep", "singleTalkWaiting", "eachLetterCost"]
+    },
+    {
+      "id": "feedback",
+      "title": "请求反馈",
+      "summary": "控制 API 超时、处理中提示、失败回报和错误详情展示。",
+      "mode": "both",
+      "fields": ["apiTimeoutMs", "sendProcessingNotice", "processingNoticeText", "processingNoticeDelayMs", "sendFailureNotice", "failureNoticeDetailMode", "generationFailedText"]
+    },
+    {
+      "id": "memory",
+      "title": "记忆与摘要",
+      "summary": "闲置自动清空、记忆压缩与摘要提示词。",
+      "mode": "common",
+      "fields": ["contextAutoForgetMs", "memorySummary.enabled", "memorySummary.threshold", "memorySummary.summaryPrompt"]
+    },
+    {
+      "id": "router",
+      "title": "智能路由",
+      "summary": "插件当前支持的路由模式、重试和排除列表。",
+      "mode": "advanced",
+      "fields": ["smartRouter.enabled", "smartRouter.mode", "smartRouter.excludeIndices", "smartRouter.retryCount", "smartRouter.retryDelay"]
+    },
+    {
+      "id": "memes",
+      "title": "表情包",
+      "summary": "控制表情包功能、目录与触发概率。",
+      "mode": "common",
+      "fields": ["enableMemes", "memeProb", "memesPath"]
+    },
+    {
+      "id": "queue",
+      "title": "请求队列",
+      "summary": "当前插件实际消费的是最大并发数。",
+      "mode": "advanced",
+      "fields": ["requestQueue.maxConcurrent"]
+    },
+    {
+      "id": "mapping",
+      "title": "群级映射",
+      "summary": "按群绑定人格和 API，适合多群多角色场景。",
+      "mode": "advanced",
+      "fields": ["groupPersonalityMap", "groupApiMap"]
+    },
+    {
+      "id": "apiParams",
+      "title": "API 参数",
+      "summary": "向下游模型透传的参数字典。",
+      "mode": "advanced",
+      "fields": ["apiParams.temperature", "apiParams.maxTokens", "apiParams.anthropicMaxTokens", "apiParams.geminiMaxTokens"]
+    },
+    {
+      "id": "forward",
+      "title": "转发设置",
+      "summary": "长文本转发、模型列表输出和图片卡片风格。",
+      "mode": "both",
+      "fields": ["forwardStrategy", "forwardMaxLength", "forwardMaxSegments", "groupMentionWait", "forwardModelList", "modelListImageEnabled", "uiStyle"]
+    }
+  ],
+  "allowAdditionalPaths": ["apiParams.*"],
+  "deprecatedFields": {
+    "apiHealthWeights": {
+      "note": "健康评分权重已迁移到 GUI 本地偏好文件，不再写入 runtime_config.json。"
+    },
+    "smartRouter.defaultApiIndex": {
+      "replacedBy": "activeApiIndex",
+      "note": "当前插件从 activeApiIndex 作为默认起始节点。"
+    },
+    "smartRouter.primaryApiIndex": {
+      "replacedBy": "activeApiIndex",
+      "note": "当前插件未区分 primaryApiIndex，默认从 activeApiIndex 开始。"
+    },
+    "smartRouter.fallbackApiIndices": {
+      "note": "当前插件不再显式声明备用节点列表，而是根据 mode、retryCount 和 excludeIndices 选择后续节点。"
+    },
+    "smartRouter.degradeStrategy": {
+      "note": "当前插件不消费该字段。请改用 smartRouter.mode / retryCount / retryDelay。"
+    },
+    "smartRouter.maxSwitches": {
+      "replacedBy": "smartRouter.retryCount",
+      "note": "当前插件使用 retryCount 控制额外尝试节点数量。"
+    },
+    "smartRouter.rules": {
+      "note": "当前插件不消费 rules 形式的路由规则。"
+    },
+    "requestQueue.retryAttempts": {
+      "replacedBy": "smartRouter.retryCount",
+      "note": "队列层不再处理重试，失败重试由智能路由负责。"
+    },
+    "requestQueue.retryDelay": {
+      "replacedBy": "smartRouter.retryDelay",
+      "note": "队列层不再处理重试延迟，失败重试由智能路由负责。"
+    },
+    "memorySummary.model": {
+      "note": "当前插件摘要仍使用活跃模型或当前节点，未单独消费该字段。"
+    },
+    "memorySummary.maxSummaryLength": {
+      "replacedBy": "memorySummary.summaryPrompt",
+      "note": "当前插件未直接消费独立长度字段，可在摘要提示词中约束输出长度。"
+    }
+  },
+  "fields": {
+    "nickName": {
+      "title": "昵称",
+      "type": "string",
+      "description": "机器人的称呼/昵称，用于防触发和语境代入。",
+      "default": "Neko"
+    },
+    "masterQQ": {
+      "title": "主人 QQ 列表",
+      "type": "string[]",
+      "description": "拥有各项高级指令最高权限的账号列表。",
+      "default": [],
+      "ui": "tags",
+      "placeholder": "输入 QQ 号后回车"
+    },
+    "privateRefuse": {
+      "title": "私聊拒绝文案",
+      "type": "string",
+      "description": "仅主人模式或陌生人私聊时的拒绝回复语。",
+      "default": "我的主人不让我和陌生人说话，当前是仅主人模式"
+    },
+    "logLevel": {
+      "title": "日志级别",
+      "type": "enum",
+      "description": "日志输出级别。",
+      "default": "debug",
+      "enum": ["debug", "info", "warn", "error"]
+    },
+    "activeApiIndex": {
+      "title": "活跃 API 索引",
+      "type": "number",
+      "description": "当前默认使用的 API 节点编号。",
+      "default": 0,
+      "minimum": 0
+    },
+    "activeGroupPersonalityIndex": {
+      "title": "群聊人格索引",
+      "type": "number",
+      "description": "当前默认使用的群聊人格编号。",
+      "default": 0,
+      "minimum": 0
+    },
+    "activePrivatePersonalityIndex": {
+      "title": "私聊人格索引",
+      "type": "number",
+      "description": "当前默认使用的私聊人格编号。",
+      "default": 0,
+      "minimum": 0
+    },
+    "groups": {
+      "title": "监听群组",
+      "type": "string[]",
+      "description": "允许机器人监听、记录和回复的群号列表。",
+      "default": [],
+      "ui": "tags",
+      "placeholder": "输入群号后回车"
+    },
+    "allowPrivateTalkingUsers": {
+      "title": "私聊白名单",
+      "type": "string[]",
+      "description": "允许私聊的用户 ID 列表。",
+      "default": [],
+      "ui": "tags",
+      "placeholder": "输入 QQ 号后回车"
+    },
+    "userBlacklist": {
+      "title": "用户黑名单",
+      "type": "string[]",
+      "description": "完全屏蔽的用户 ID 列表。",
+      "default": [],
+      "ui": "tags",
+      "placeholder": "输入 QQ 号后回车"
+    },
+    "groupLimits": {
+      "title": "群限流配置 (群号 → 次数/12小时)",
+      "type": "record<number>",
+      "description": "群聊 12 小时周期内允许的调用次数上限，格式为 {群号: 次数}。",
+      "default": {},
+      "ui": "keyValue",
+      "keyPlaceholder": "群号",
+      "valuePlaceholder": "次数"
+    },
+    "maxGroupMessages": {
+      "title": "群聊上下文上限",
+      "type": "number",
+      "description": "群聊时保留的最长历史上下文记录条数。",
+      "default": 20,
+      "minimum": 1
+    },
+    "singleMaxMessages": {
+      "title": "私聊上下文上限",
+      "type": "number",
+      "description": "私聊历史消息上下文上限。",
+      "default": 40,
+      "minimum": 1
+    },
+    "randomReply": {
+      "title": "随机回复概率",
+      "type": "number",
+      "description": "满足检测条数后触发被动插嘴回复的概率，取值 0~1。",
+      "default": 0.3,
+      "minimum": 0,
+      "maximum": 1,
+      "ui": "slider",
+      "displayAsPercentage": true
+    },
+    "messagesLength": {
+      "title": "触发检测条数",
+      "type": "number",
+      "description": "群聊每积累多少条消息检测一次是否要插嘴。",
+      "default": 15,
+      "minimum": 1
+    },
+    "sleepTime": {
+      "title": "话痨冷却时间",
+      "type": "number",
+      "description": "话痨模式下每句话之间的冷却间隔时间(ms)。",
+      "default": 1000,
+      "minimum": 0
+    },
+    "singleAskSleep": {
+      "title": "@后个人冷却",
+      "type": "number",
+      "description": "群聊中被 @ 后的个人冷却时间(ms)。",
+      "default": 1000,
+      "minimum": 0
+    },
+    "singleTalkWaiting": {
+      "title": "私聊等待时间",
+      "type": "number",
+      "description": "私聊判定等待时间(ms)，用于防连续多条消息吞字。",
+      "default": 500,
+      "minimum": 0
+    },
+    "eachLetterCost": {
+      "title": "打字延迟",
+      "type": "number",
+      "description": "模拟打字延迟，每个字等待的毫秒数。",
+      "default": 1,
+      "minimum": 0
+    },
+    "apiTimeoutMs": {
+      "title": "API 超时",
+      "type": "number",
+      "description": "调用下游 API 的超时时间(ms)。",
+      "default": 120000,
+      "minimum": 1000
+    },
+    "sendProcessingNotice": {
+      "title": "处理中提示",
+      "type": "boolean",
+      "description": "收到请求后是否先发送处理中提示。",
+      "default": true
+    },
+    "processingNoticeText": {
+      "title": "处理中提示文案",
+      "type": "string",
+      "description": "请求已受理时发送的提示文本。",
+      "default": "已接收到请求，请耐心等待处理。",
+      "placeholder": "已接收到请求，请耐心等待处理。"
+    },
+    "processingNoticeDelayMs": {
+      "title": "处理中提示延迟",
+      "type": "number",
+      "description": "发送处理中提示前的等待时间(ms)，0 表示立刻发送。",
+      "default": 0,
+      "minimum": 0
+    },
+    "sendFailureNotice": {
+      "title": "失败提示",
+      "type": "boolean",
+      "description": "请求失败时是否在聊天里回报错误。",
+      "default": true
+    },
+    "failureNoticeDetailMode": {
+      "title": "失败详情级别",
+      "type": "enum",
+      "description": "失败提示详情模式：full=节点+错误详情，brief=仅节点，off=只给统一失败文案。",
+      "default": "full",
+      "enum": ["full", "brief", "off"]
+    },
+    "generationFailedText": {
+      "title": "失败重试文案",
+      "type": "string",
+      "description": "生成失败时统一附加的重试提示文案。",
+      "default": "本次生成已失败，请重试。",
+      "placeholder": "本次生成已失败，请重试。"
+    },
+    "contextAutoForgetMs": {
+      "title": "闲置自动清空",
+      "type": "number",
+      "description": "上下文闲置自动清空时间(ms)，0 表示关闭自动清空。",
+      "default": 600000,
+      "minimum": 0
+    },
+    "memorySummary.enabled": {
+      "title": "启用记忆压缩",
+      "type": "boolean",
+      "description": "是否在上下文达到阈值后自动进行摘要压缩。",
+      "default": false
+    },
+    "memorySummary.threshold": {
+      "title": "记忆压缩阈值",
+      "type": "number",
+      "description": "当上下文消息条数达到此阈值后触发摘要压缩。",
+      "default": 30,
+      "minimum": 5
+    },
+    "memorySummary.summaryPrompt": {
+      "title": "摘要提示词",
+      "type": "string",
+      "description": "生成上下文摘要时附加给模型的提示词。",
+      "default": "请用不超过200字的中文总结以下对话中的关键信息、人物关系和重要结论，不要遗漏任何重要细节：",
+      "ui": "textarea",
+      "rows": 4,
+      "placeholder": "留空则使用插件内置默认提示词"
+    },
+    "smartRouter.enabled": {
+      "title": "启用智能路由",
+      "type": "boolean",
+      "description": "是否开启智能路由与故障切换。",
+      "default": false
+    },
+    "smartRouter.mode": {
+      "title": "路由模式",
+      "type": "enum",
+      "description": "智能路由模式，可选 failover / round-robin / random。",
+      "default": "failover",
+      "enum": ["failover", "round-robin", "random"],
+      "deprecatedValues": {
+        "roundrobin": {
+          "replacedBy": "round-robin",
+          "note": "旧命名已统一为 round-robin。"
+        },
+        "priority": {
+          "replacedBy": "failover",
+          "note": "当前插件未实现 priority，建议改用 failover。"
+        },
+        "least-latency": {
+          "note": "当前插件未实现 least-latency，可改用 failover 或 random。"
+        }
+      }
+    },
+    "smartRouter.excludeIndices": {
+      "title": "排除节点",
+      "type": "number[]",
+      "description": "不参与智能路由切换的 API 节点索引列表。",
+      "default": [],
+      "ui": "numberList",
+      "placeholder": "例如: 3, 7, 9"
+    },
+    "smartRouter.retryCount": {
+      "title": "路由重试次数",
+      "type": "number",
+      "description": "启用智能路由后可继续尝试的额外节点数量。",
+      "default": 2,
+      "minimum": 0
+    },
+    "smartRouter.retryDelay": {
+      "title": "路由重试延迟",
+      "type": "number",
+      "description": "路由切换到下一个节点前的等待时间(ms)。",
+      "default": 1000,
+      "minimum": 0
+    },
+    "enableMemes": {
+      "title": "启用表情包",
+      "type": "boolean",
+      "description": "是否启用本地表情包功能。",
+      "default": false
+    },
+    "memeProb": {
+      "title": "表情包概率",
+      "type": "number",
+      "description": "触发表情包的概率，取值 0~1。",
+      "default": 1,
+      "minimum": 0,
+      "maximum": 1,
+      "ui": "slider",
+      "displayAsPercentage": true
+    },
+    "memesPath": {
+      "title": "表情包目录",
+      "type": "string",
+      "description": "本地表情包文件夹的绝对路径或相对路径。",
+      "default": "",
+      "placeholder": "例如: plugins/koishi-plugin-Enhanced-NekoAI/neko_memes"
+    },
+    "requestQueue.maxConcurrent": {
+      "title": "最大并发数",
+      "type": "number",
+      "description": "请求队列允许同时进行的 API 请求数量。",
+      "default": 3,
+      "minimum": 1
+    },
+    "groupPersonalityMap": {
+      "title": "群人格映射 (群号 → 人格索引)",
+      "type": "record<number>",
+      "description": "按群独立人格绑定，格式为 {群号: 人格索引}。",
+      "default": {},
+      "ui": "keyValue",
+      "keyPlaceholder": "群号",
+      "valuePlaceholder": "索引"
+    },
+    "groupApiMap": {
+      "title": "群 API 映射 (群号 → API 索引)",
+      "type": "record<number>",
+      "description": "按群独立模型绑定，格式为 {群号: API 索引}。",
+      "default": {},
+      "ui": "keyValue",
+      "keyPlaceholder": "群号",
+      "valuePlaceholder": "索引"
+    },
+    "apiParams.temperature": {
+      "title": "temperature",
+      "type": "number",
+      "description": "透传给下游模型的 temperature 参数。",
+      "default": 0.65,
+      "minimum": 0,
+      "maximum": 2,
+      "step": 0.01
+    },
+    "apiParams.maxTokens": {
+      "title": "maxTokens",
+      "type": "number",
+      "description": "OpenAI 兼容接口的最大输出 token 数。",
+      "default": 32000,
+      "minimum": 1
+    },
+    "apiParams.anthropicMaxTokens": {
+      "title": "anthropicMaxTokens",
+      "type": "number",
+      "description": "Anthropic 接口的最大输出 token 数。",
+      "default": 4096,
+      "minimum": 1
+    },
+    "apiParams.geminiMaxTokens": {
+      "title": "geminiMaxTokens",
+      "type": "number",
+      "description": "Gemini 接口的最大输出 token 数。",
+      "default": 8192,
+      "minimum": 1
+    },
+    "forwardStrategy": {
+      "title": "转发策略",
+      "type": "enum",
+      "description": "合并转发策略，可选 auto / on / off。",
+      "default": "auto",
+      "enum": ["auto", "on", "off"],
+      "deprecatedValues": {
+        "always": {
+          "replacedBy": "on",
+          "note": "旧 GUI 的 always 对应当前插件的 on。"
+        },
+        "never": {
+          "replacedBy": "off",
+          "note": "旧 GUI 的 never 对应当前插件的 off。"
+        }
+      }
+    },
+    "forwardMaxLength": {
+      "title": "转发最大长度",
+      "type": "number",
+      "description": "触发合并打包的总字数阈值。",
+      "default": 300,
+      "minimum": 100
+    },
+    "forwardMaxSegments": {
+      "title": "转发最大分段数",
+      "type": "number",
+      "description": "触发合并打包的分段数阈值。",
+      "default": 5,
+      "minimum": 1
+    },
+    "groupMentionWait": {
+      "title": "@合并等待",
+      "type": "number",
+      "description": "群聊 @ 合并等待时间(ms)，0 表示不等待立即响应。",
+      "default": 0,
+      "minimum": 0
+    },
+    "forwardModelList": {
+      "title": "模型列表文本合并",
+      "type": "boolean",
+      "description": "模型列表是否以合并转发形式输出文本。",
+      "default": true
+    },
+    "modelListImageEnabled": {
+      "title": "模型列表图片分页",
+      "type": "boolean",
+      "description": "模型列表是否启用图片分页渲染。",
+      "default": false
+    },
+    "uiStyle": {
+      "title": "图片卡片风格",
+      "type": "enum",
+      "description": "图片卡片风格编号：1=极光玻璃，2=深色终端，3=暖纸卡片。",
+      "default": 1,
+      "enum": [1, 2, 3]
+    }
+  }
+}

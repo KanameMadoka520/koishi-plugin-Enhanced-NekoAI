@@ -7,7 +7,7 @@ const { Config, name, usage, loadAllConfigs } = require('./lib/config');
 const { registerCommands } = require('./lib/commands');
 const { registerListener } = require('./lib/listener');
 const { loadMemes } = require('./lib/memes');
-const { loadAllMemory } = require('./lib/memory');
+const { loadAllMemory, rescheduleAllMemoryCleanupTimers } = require('./lib/memory');
 const { loadCommandsList, loadGroupFriends } = require('./lib/utils');
 const state = require('./lib/state');
 const logger = require('./lib/logger');
@@ -35,6 +35,7 @@ function apply(ctx) {
 
   // 5. 加载长期记忆
   loadAllMemory();
+  rescheduleAllMemoryCleanupTimers();
 
   // 6. 注册指令和监听器
   registerCommands(ctx);

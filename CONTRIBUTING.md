@@ -53,6 +53,7 @@ lib/
 | 文件 | 用途 | 对应模块 |
 |------|------|----------|
 | `runtime_config.json` | 核心参数（主人QQ、阈值、开关等） | `config.js` |
+| `runtime_schema.json` | 运行时配置契约（字段 / 说明 / 约束 / 废弃信息） | GUI / `config.js` / 自检 |
 | `api_config.json` | 多节点 API 池 | `config.js` |
 | `group_personality.json` | 群聊人格库 | `config.js` |
 | `private_personality.json` | 私聊人格库 | `config.js` |
@@ -62,7 +63,13 @@ lib/
 | `memory/group/*.json` | 群聊长期记忆 | `memory.js` |
 | `memory/private/*.json` | 私聊长期记忆 | `memory.js` |
 
-**开发提示**：如果你新增了一个功能需要读取参数，请修改 `state.runtimeConfig`，并在 `commands.js` 中添加对应的聊天指令（配合 `lib/config.js` 中的 `saveRuntimeConfig()` 来保存）。
+**开发提示**：如果你新增了一个功能需要读取参数，请同时做这三件事：
+
+1. 修改 `state.runtimeConfig` / `defaultRuntimeConfig`
+2. 在 `commands.js` 中添加对应的聊天指令（如需要）
+3. **同步更新 `runtime_schema.json`**，把字段说明、约束、枚举值和（如有）废弃信息写进去
+
+否则 GUI Manager、自检和迁移提醒会和插件真实行为再次脱节。
 
 ### 2. 多模型原生协议适配器
 
@@ -186,13 +193,21 @@ if (aiType === 'anthropic') {
 
 1. 在 `lib/config.js` 的 `defaultRuntimeConfig` 中添加默认值
 2. `loadAllConfigs()` 会自动将新字段合并到现有配置中（向下兼容）
-3. 在 `lib/commands.js` 中添加修改该字段的聊天指令
-4. 通过 `state.runtimeConfig.yourField` 在业务逻辑中读取
+3. 在 `runtime_schema.json` 中添加字段定义（标题、说明、类型、范围、枚举值、UI 元数据）
+4. 如有旧字段替代关系，同时更新 `deprecatedFields` 或字段上的 `deprecatedValues`
+5. 在 `lib/commands.js` 中添加修改该字段的聊天指令
+6. 通过 `state.runtimeConfig.yourField` 在业务逻辑中读取
 
 图片渲染相关字段的现有做法可参考：
 
 * `uiStyle`：统一控制帮助菜单 / 人格列表 / 模型列表分页 / 状态面板的图片主题
 * `modelListImageEnabled`：开关模型列表是否启用图片分页渲染
+
+请求反馈相关字段的现有做法可参考：
+
+* `apiTimeoutMs`：下游模型调用超时
+* `sendProcessingNotice` / `processingNoticeText` / `processingNoticeDelayMs`：处理中提示
+* `sendFailureNotice` / `failureNoticeDetailMode` / `generationFailedText`：失败回报和错误详情粒度
 
 群状态类指令的现有做法可参考：
 

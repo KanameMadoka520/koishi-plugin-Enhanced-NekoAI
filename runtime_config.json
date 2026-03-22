@@ -5,6 +5,8 @@
     "activeApiIndex": "当前使用的API节点编号（对应 api_config.json 的索引，从 0 开始）",
     "activeGroupPersonalityIndex": "当前使用的群聊人格编号（对应 group_personality.json 的索引）",
     "activePrivatePersonalityIndex": "当前使用的私聊人格编号（对应 private_personality.json 的索引）",
+    "forwardModelList": "是否以合并转发形式输出模型列表 (true/false)",
+    "modelListImageEnabled": "模型列表是否启用图片分页渲染 (true/false)",
     "maxGroupMessages": "群聊时允许保留的最长历史上下文记录条数",
     "enableMemes": "是否启用本地表情包功能 (true/false)",
     "memesPath": "本地表情包文件夹的绝对路径或相对路径",
@@ -14,6 +16,7 @@
     "messagesLength": "话痨模式：群聊每积累多少条消息检测一次是否要插嘴",
     "forwardMaxLength": "合并转发机制：触发合并打包的总字数阈值",
     "forwardMaxSegments": "合并转发机制：触发合并打包的分段数阈值",
+    "forwardStrategy": "合并转发机制：控制是否启用。可选值：auto(自动)、on(强制开启)、off(强制关闭)",
     "eachLetterCost": "模拟打字延迟：每个字等待的毫秒数",
     "allowPrivateTalkingUsers": "允许私聊的用户ID列表（白名单）",
     "groups": "允许机器人监听、记录和回复的群号列表",
@@ -21,9 +24,25 @@
     "singleAskSleep": "群聊中被@后的个人冷却时间(ms)",
     "singleTalkWaiting": "私聊判定等待时间(ms，防连续多条消息吞字)",
     "singleMaxMessages": "私聊历史消息上下文上限",
-    "groupLimits": "各群聊的12小时响应次数上限，格式为 {\"群号\": 次数}",
-    "forwardModelList": "模型列表是否以合并转发形式输出",
-    "forwardStrategy": "合并转发策略：auto(智能判断) / on(强制合并) / off(强制关闭)"
+    "groupLimits": "群聊12小时回复限制字典 { '群号': 限制次数 }",
+    "logLevel": "日志输出级别: debug(全部) / info(常规) / warn(警告) / error(仅错误)",
+    "userBlacklist": "用户黑名单QQ号列表（完全屏蔽）",
+    "groupPersonalityMap": "按群独立人格绑定 { '群号': 人格索引 }",
+    "groupApiMap": "按群独立模型绑定 { '群号': API节点索引 }",
+    "groupMentionWait": "群聊@合并等待时间(ms)，0=不等待立即响应",
+    "contextAutoForgetMs": "上下文闲置自动清空时间(ms)，0=关闭自动清空",
+    "apiTimeoutMs": "调用下游 API 的超时时间(ms)",
+    "sendProcessingNotice": "收到请求后是否先发送“处理中”提示",
+    "processingNoticeText": "请求已受理时发送的提示文案",
+    "processingNoticeDelayMs": "发送处理中提示前的等待时间(ms)，0=立刻发送",
+    "sendFailureNotice": "请求失败时是否在聊天里回报错误",
+    "failureNoticeDetailMode": "失败提示详情模式：full=节点+错误详情，brief=仅节点，off=仅通用失败文案",
+    "generationFailedText": "生成失败时统一附加的重试提示文案",
+    "uiStyle": "图片卡片风格编号：1=极光玻璃，2=深色终端，3=暖纸卡片",
+    "smartRouter": "智能路由配置（需手动开启）",
+    "apiParams": "API请求参数（temperature, maxTokens等）",
+    "memorySummary": "记忆摘要压缩配置",
+    "requestQueue": "请求队列并发控制配置"
   },
   "masterQQ": [
     "123456789"
@@ -32,6 +51,8 @@
   "activeApiIndex": 0,
   "activeGroupPersonalityIndex": 0,
   "activePrivatePersonalityIndex": 0,
+  "forwardModelList": true,
+  "modelListImageEnabled": false,
   "maxGroupMessages": 20,
   "enableMemes": true,
   "memesPath": "plugins/koishi-plugin-Enhanced-NekoAI/neko_memes",
@@ -39,6 +60,9 @@
   "sleepTime": 1000,
   "randomReply": 0.3,
   "messagesLength": 15,
+  "forwardMaxLength": 400,
+  "forwardMaxSegments": 4,
+  "forwardStrategy": "auto",
   "eachLetterCost": 0,
   "allowPrivateTalkingUsers": [
     "123456789"
@@ -54,8 +78,39 @@
   "groupLimits": {
     "100000002": 100
   },
-  "forwardModelList": true,
-  "forwardStrategy": "auto",
-  "forwardMaxLength": 400,
-  "forwardMaxSegments": 4
+  "logLevel": "debug",
+  "userBlacklist": [],
+  "groupPersonalityMap": {},
+  "groupApiMap": {},
+  "groupMentionWait": 0,
+  "contextAutoForgetMs": 600000,
+  "apiTimeoutMs": 120000,
+  "sendProcessingNotice": true,
+  "processingNoticeText": "已接收到请求，请耐心等待处理。",
+  "processingNoticeDelayMs": 0,
+  "sendFailureNotice": true,
+  "failureNoticeDetailMode": "full",
+  "generationFailedText": "本次生成已失败，请重试。",
+  "uiStyle": 1,
+  "smartRouter": {
+    "enabled": false,
+    "mode": "failover",
+    "retryCount": 2,
+    "retryDelay": 1000,
+    "excludeIndices": []
+  },
+  "apiParams": {
+    "temperature": 0.65,
+    "maxTokens": 32000,
+    "anthropicMaxTokens": 4096,
+    "geminiMaxTokens": 8192
+  },
+  "memorySummary": {
+    "enabled": false,
+    "threshold": 30,
+    "summaryPrompt": "请用不超过200字的中文总结以下对话中的关键信息、人物关系和重要结论，不要遗漏任何重要细节："
+  },
+  "requestQueue": {
+    "maxConcurrent": 3
+  }
 }

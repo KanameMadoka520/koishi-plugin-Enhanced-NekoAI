@@ -1,0 +1,985 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>NekoAI - 历史记录查阅器 Pro+</title>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <style>
+    :root {
+      --bg-body: #f0f2f5; --bg-card: #fff; --bg-sidebar: #fff; --bg-input: #fff;
+      --bg-inner: #fafafa; --bg-hover: #e6f7ff; --bg-bubble-user: #f5f5f5; --bg-bubble-ai: #e6f7ff;
+      --text-primary: #333; --text-secondary: #555; --text-muted: #888;
+      --border: #e8e8e8; --border-input: #d9d9d9;
+      --primary: #1890ff; --primary-light: #e6f7ff; --primary-border: #91d5ff;
+      --danger: #ff4d4f; --success: #52c41a; --warning: #faad14; --purple: #722ed1; --cyan: #13c2c2;
+      --shadow: rgba(0,0,0,0.05);
+    }
+    [data-theme="dark"] {
+      --bg-body: #1a1a2e; --bg-card: #16213e; --bg-sidebar: #16213e; --bg-input: #0f3460;
+      --bg-inner: #1a1a3e; --bg-hover: #0f3460; --bg-bubble-user: #1a1a3e; --bg-bubble-ai: #0a2540;
+      --text-primary: #e0e0e0; --text-secondary: #b0b0b0; --text-muted: #777;
+      --border: #2a2a4a; --border-input: #3a3a5a;
+      --shadow: rgba(0,0,0,0.3);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: "Segoe UI", Roboto, Arial, sans-serif; background: var(--bg-body); color: var(--text-primary); transition: background 0.3s, color 0.3s; }
+    .app-layout { display: flex; height: 100vh; overflow: hidden; }
+
+    /* Left sidebar */
+    .sidebar-left { width: 260px; background: var(--bg-sidebar); border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; z-index: 20; transition: background 0.3s; }
+    .sidebar-header { padding: 16px 12px; border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
+    .btn-select { width: 100%; padding: 10px; background: var(--primary); color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: bold; transition: 0.2s; }
+    .btn-select:hover { opacity: 0.85; }
+    .file-list { flex: 1; overflow-y: auto; padding: 8px; }
+
+    .date-grid { display: flex; flex-direction: column; gap: 3px; }
+    .date-item { padding: 8px 10px; border-radius: 6px; cursor: pointer; border: 1px solid transparent; transition: 0.2s; font-size: 12px; display: flex; justify-content: space-between; align-items: center; }
+    .date-item:hover { background: var(--bg-hover); }
+    .date-item.active { background: var(--primary-light); border-color: var(--primary-border); color: var(--primary); font-weight: bold; }
+    [data-theme="dark"] .date-item.active { background: #0a2540; }
+    .date-label { display: flex; align-items: center; gap: 6px; }
+    .date-period { font-size: 10px; padding: 1px 5px; border-radius: 3px; }
+    .date-period.day { background: #fff7e6; color: #d48806; }
+    .date-period.night { background: #f0f5ff; color: #2f54eb; }
+    [data-theme="dark"] .date-period.day { background: #2a1a00; }
+    [data-theme="dark"] .date-period.night { background: #0a1540; }
+    .date-count { font-size: 10px; padding: 1px 6px; border-radius: 8px; font-weight: bold; }
+    .heat-0 { background: var(--bg-inner); color: var(--text-muted); }
+    .heat-1 { background: #e6f7ff; color: #1890ff; }
+    .heat-2 { background: #bae7ff; color: #096dd9; }
+    .heat-3 { background: #69c0ff; color: #fff; }
+    .heat-4 { background: #1890ff; color: #fff; }
+    [data-theme="dark"] .heat-1 { background: #0a2540; } [data-theme="dark"] .heat-2 { background: #0a3560; }
+    [data-theme="dark"] .heat-3 { background: #0a4580; } [data-theme="dark"] .heat-4 { background: #1890ff; }
+
+    /* Main content */
+    .main-content { flex: 1; display: flex; flex-direction: column; min-width: 400px; background: var(--bg-body); }
+    .main-header { padding: 12px 16px; background: var(--bg-card); border-bottom: 1px solid var(--border); z-index: 10; display: flex; flex-direction: column; gap: 8px; }
+    .header-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .header-title { font-weight: bold; font-size: 15px; }
+
+    /* Toolbar */
+    .toolbar { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+    .search-bar-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .search-box { flex: 1; min-width: 180px; padding: 7px 10px; border: 1px solid var(--border-input); border-radius: 6px; outline: none; background: var(--bg-input); color: var(--text-primary); font-size: 13px; transition: 0.2s; }
+    .search-box:focus { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(24,144,255,0.2); }
+    .filter-select { padding: 7px; border: 1px solid var(--border-input); border-radius: 6px; outline: none; background: var(--bg-input); color: var(--text-primary); font-size: 12px; }
+    .filter-checkbox { display: flex; align-items: center; gap: 4px; font-size: 12px; cursor: pointer; user-select: none; }
+
+    .btn { padding: 5px 10px; border: none; border-radius: 5px; cursor: pointer; color: #fff; background: var(--primary); font-weight: 600; transition: 0.2s; font-size: 11px; display: inline-flex; align-items: center; gap: 3px; white-space: nowrap; }
+    .btn:hover { opacity: 0.85; }
+    .btn-sm { padding: 4px 8px; font-size: 10px; }
+    .btn-ghost { background: transparent; color: var(--text-muted); border: 1px solid var(--border); }
+    .btn-ghost:hover { border-color: var(--primary); color: var(--primary); }
+    .btn-active { background: var(--primary); color: #fff !important; border-color: var(--primary) !important; }
+    .btn-danger { background: var(--danger); }
+    .btn-success { background: var(--success); }
+    .btn-warning { background: var(--warning); color: #333; }
+    .btn-cyan { background: var(--cyan); }
+    .theme-toggle { background: transparent; border: 1px solid var(--border); border-radius: 50%; width: 28px; height: 28px; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; color: var(--text-primary); transition: 0.2s; }
+    .theme-toggle:hover { border-color: var(--primary); }
+
+    /* Stats panel */
+    .stats-panel { background: var(--bg-card); border-bottom: 1px solid var(--border); overflow: hidden; transition: max-height 0.3s; }
+    .stats-panel.collapsed { max-height: 0; }
+    .stats-panel.expanded { max-height: 2000px; }
+    .stats-inner { padding: 16px; display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+    .stat-section { background: var(--bg-inner); border-radius: 8px; padding: 12px; }
+    .stat-section h4 { font-size: 13px; color: var(--primary); margin-bottom: 8px; border-bottom: 1px solid var(--border); padding-bottom: 6px; }
+    .stat-cards { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
+    .stat-card { background: var(--bg-card); border-radius: 6px; padding: 8px 12px; border: 1px solid var(--border); text-align: center; min-width: 80px; }
+    .stat-card .num { font-size: 20px; font-weight: bold; color: var(--primary); }
+    .stat-card .lbl { font-size: 10px; color: var(--text-muted); }
+    .stat-card.err .num { color: var(--danger); }
+
+    .bar-row { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; font-size: 11px; }
+    .bar-label { width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; color: var(--text-secondary); flex-shrink: 0; }
+    .bar-track { flex: 1; height: 14px; background: var(--border); border-radius: 3px; overflow: hidden; position: relative; }
+    .bar-fill { height: 100%; border-radius: 3px; transition: width 0.3s; }
+    .bar-fill.blue { background: var(--primary); }
+    .bar-fill.green { background: var(--success); }
+    .bar-fill.orange { background: var(--warning); }
+    .bar-fill.purple { background: var(--purple); }
+    .bar-count { width: 36px; text-align: right; color: var(--text-muted); font-size: 10px; flex-shrink: 0; }
+
+    .hourly-chart { display: flex; align-items: flex-end; gap: 2px; height: 50px; padding-top: 4px; }
+    .hour-bar { flex: 1; background: var(--primary); border-radius: 2px 2px 0 0; transition: height 0.3s; min-width: 6px; position: relative; cursor: default; }
+    .hour-bar:hover { opacity: 0.8; }
+    .hour-labels { display: flex; gap: 2px; font-size: 8px; color: var(--text-muted); }
+    .hour-labels span { flex: 1; text-align: center; min-width: 6px; }
+
+    /* Log container */
+    .log-container { flex: 1; overflow-y: auto; padding: 16px; scroll-behavior: smooth; }
+    .empty-state { height: 100%; display: flex; justify-content: center; align-items: center; color: var(--text-muted); font-size: 15px; flex-direction: column; gap: 12px; }
+
+    /* Auto-detect banner */
+    .auto-detect-banner { background: linear-gradient(135deg, var(--primary-light), #f0f5ff); border: 2px solid var(--primary-border); border-radius: 12px; padding: 20px 28px; margin-top: 12px; display: flex; align-items: center; gap: 16px; box-shadow: 0 4px 16px rgba(24,144,255,0.15); animation: bannerSlideIn 0.4s ease-out; max-width: 520px; }
+    [data-theme="dark"] .auto-detect-banner { background: linear-gradient(135deg, #0a2540, #0f3460); }
+    .auto-detect-icon { font-size: 36px; flex-shrink: 0; }
+    .auto-detect-info { flex: 1; }
+    .auto-detect-info .detect-title { font-size: 14px; font-weight: 700; color: var(--primary); margin-bottom: 4px; }
+    .auto-detect-info .detect-file { font-size: 12px; color: var(--text-secondary); font-family: monospace; background: var(--bg-card); padding: 2px 8px; border-radius: 4px; display: inline-block; margin-top: 2px; }
+    .auto-detect-actions { display: flex; gap: 8px; flex-shrink: 0; }
+    .btn-auto { padding: 6px 14px; border: none; border-radius: 6px; cursor: pointer; color: #fff; font-weight: 600; font-size: 12px; transition: 0.2s; }
+    .btn-auto:hover { opacity: 0.85; }
+    .btn-auto.confirm { background: var(--success); }
+    .btn-auto.dismiss { background: transparent; color: var(--text-muted); border: 1px solid var(--border); }
+    .btn-auto.dismiss:hover { border-color: var(--primary); color: var(--primary); }
+    @keyframes bannerSlideIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* Drop zone overlay */
+    .drop-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(24,144,255,0.12); z-index: 99999; display: flex; justify-content: center; align-items: center; pointer-events: none; }
+    .drop-overlay-inner { background: var(--bg-card); border: 3px dashed var(--primary); border-radius: 16px; padding: 48px 64px; text-align: center; box-shadow: 0 8px 32px rgba(24,144,255,0.25); }
+    .drop-overlay-inner .drop-icon { font-size: 56px; margin-bottom: 12px; }
+    .drop-overlay-inner .drop-text { font-size: 18px; font-weight: 700; color: var(--primary); }
+    .drop-overlay-inner .drop-hint { font-size: 12px; color: var(--text-muted); margin-top: 6px; }
+
+    /* Log cards */
+    .log-card { background: var(--bg-card); border-radius: 8px; padding: 14px; margin-bottom: 14px; box-shadow: 0 2px 6px var(--shadow); border: 1px solid transparent; transition: 0.3s; position: relative; }
+    .log-card.is-error { border-left: 4px solid var(--danger); }
+    .log-card.highlight-target { border-color: var(--primary); box-shadow: 0 0 10px rgba(24,144,255,0.3); }
+
+    .meta-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px dashed var(--border); font-size: 12px; color: var(--text-muted); }
+    .tag { padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 10px; }
+    .tag.group { background: #e6f4ff; color: #1890ff; border: 1px solid #91d5ff; }
+    .tag.private { background: #f6ffed; color: #52c41a; border: 1px solid #b7eb8f; }
+    .tag.error { background: #fff2f0; color: #ff4d4f; border: 1px solid #ffccc7; }
+    [data-theme="dark"] .tag.group { background: #0a2540; border-color: #1a4570; }
+    [data-theme="dark"] .tag.private { background: #0a2a0a; border-color: #1a4a1a; }
+    [data-theme="dark"] .tag.error { background: #2a0a0a; border-color: #4a1a1a; }
+
+    .chat-bubble { margin-bottom: 8px; }
+    .user-name { font-size: 12px; font-weight: bold; margin-bottom: 3px; color: var(--text-secondary); }
+    .ai-name { font-size: 12px; font-weight: bold; margin-bottom: 3px; color: var(--primary); }
+    .bubble-content { padding: 10px 14px; border-radius: 8px; font-size: 13px; line-height: 1.6; white-space: pre-wrap; word-break: break-all; }
+    .bubble-user { background: var(--bg-bubble-user); color: var(--text-primary); }
+    .bubble-ai { background: var(--bg-bubble-ai); color: var(--text-primary); }
+    .bubble-error { background: #fff2f0; color: #cf1322; }
+    [data-theme="dark"] .bubble-error { background: #2a0a0a; color: #ff6b6b; }
+
+    /* Markdown rendered content */
+    .bubble-ai.md-rendered { white-space: normal; word-break: normal; }
+    .bubble-ai.md-rendered pre { background: var(--bg-inner); border: 1px solid var(--border); border-radius: 4px; padding: 8px; overflow-x: auto; margin: 6px 0; font-size: 12px; }
+    .bubble-ai.md-rendered code { background: var(--bg-inner); padding: 1px 4px; border-radius: 3px; font-size: 12px; }
+    .bubble-ai.md-rendered pre code { background: transparent; padding: 0; }
+    .bubble-ai.md-rendered ul, .bubble-ai.md-rendered ol { padding-left: 20px; margin: 4px 0; }
+    .bubble-ai.md-rendered blockquote { border-left: 3px solid var(--primary); padding-left: 10px; margin: 6px 0; color: var(--text-muted); }
+    .bubble-ai.md-rendered table { border-collapse: collapse; margin: 6px 0; }
+    .bubble-ai.md-rendered th, .bubble-ai.md-rendered td { border: 1px solid var(--border); padding: 4px 8px; font-size: 12px; }
+
+    .search-highlight { background: #ffe58f; color: #333; padding: 1px 2px; border-radius: 2px; }
+    [data-theme="dark"] .search-highlight { background: #5a4a00; color: #ffe58f; }
+
+    .api-info { display: flex; gap: 8px; align-items: center; margin-top: 8px; flex-wrap: wrap; }
+    .api-info-item { background: var(--bg-inner); padding: 4px 8px; border-radius: 4px; font-size: 11px; color: var(--text-muted); border: 1px solid var(--border); }
+    .api-info-item b { color: var(--primary); }
+    .copy-btn { background: transparent; border: 1px solid var(--border); border-radius: 4px; padding: 3px 8px; font-size: 10px; cursor: pointer; color: var(--text-muted); transition: 0.2s; }
+    .copy-btn:hover { border-color: var(--primary); color: var(--primary); }
+    .copy-btn.copied { border-color: var(--success); color: var(--success); }
+
+    /* Pagination */
+    .pagination { display: flex; justify-content: center; align-items: center; gap: 6px; padding: 12px; flex-wrap: wrap; }
+    .page-btn { padding: 4px 10px; border: 1px solid var(--border); border-radius: 4px; cursor: pointer; font-size: 12px; background: var(--bg-card); color: var(--text-primary); transition: 0.2s; }
+    .page-btn:hover { border-color: var(--primary); color: var(--primary); }
+    .page-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+    .page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .page-info { font-size: 11px; color: var(--text-muted); display: flex; align-items: center; gap: 4px; }
+    .page-size-select { padding: 3px; border: 1px solid var(--border-input); border-radius: 4px; background: var(--bg-input); color: var(--text-primary); font-size: 11px; }
+
+    /* User group view */
+    .user-group { margin-bottom: 16px; background: var(--bg-card); border-radius: 8px; border: 1px solid var(--border); overflow: hidden; }
+    .user-group-header { padding: 10px 14px; background: var(--bg-inner); cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-size: 13px; font-weight: bold; border-bottom: 1px solid var(--border); transition: 0.2s; user-select: none; }
+    .user-group-header:hover { background: var(--bg-hover); }
+    .user-group-body { padding: 10px; }
+    .user-group-stats { display: flex; gap: 8px; font-size: 11px; color: var(--text-muted); font-weight: normal; }
+
+    /* Error analysis */
+    .error-section { background: var(--bg-card); border-radius: 8px; padding: 14px; margin-bottom: 14px; border: 1px solid var(--border); }
+    .error-section h4 { font-size: 13px; color: var(--danger); margin-bottom: 10px; }
+    .error-pattern { display: flex; justify-content: space-between; align-items: flex-start; padding: 8px; border-bottom: 1px solid var(--border); font-size: 12px; }
+    .error-pattern:last-child { border-bottom: none; }
+    .error-pattern-name { font-weight: bold; color: var(--text-primary); }
+    .error-pattern-meta { font-size: 10px; color: var(--text-muted); margin-top: 3px; }
+    .error-pattern-count { font-weight: bold; color: var(--danger); font-size: 14px; }
+
+    /* Global search results */
+    .global-file-group { margin-bottom: 16px; }
+    .global-file-header { padding: 8px 12px; background: var(--bg-inner); border-radius: 6px; font-size: 13px; font-weight: bold; color: var(--primary); margin-bottom: 8px; display: flex; justify-content: space-between; }
+
+    /* Right sidebar */
+    .sidebar-right { width: 260px; background: var(--bg-sidebar); border-left: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; z-index: 20; transition: background 0.3s; }
+    .nav-header { padding: 12px; border-bottom: 1px solid var(--border); background: var(--bg-card); font-weight: bold; font-size: 13px; display: flex; justify-content: space-between; }
+    .timeline-stats { padding: 8px 12px; border-bottom: 1px solid var(--border); font-size: 11px; color: var(--text-muted); display: flex; gap: 8px; flex-wrap: wrap; }
+    .timeline { flex: 1; overflow-y: auto; padding: 10px 8px; }
+
+    .timeline-item { position: relative; padding: 8px 8px 8px 18px; border-left: 2px solid var(--border); margin-left: 8px; cursor: pointer; transition: 0.2s; border-radius: 0 5px 5px 0; margin-bottom: 2px; }
+    .timeline-item::before { content: ''; position: absolute; left: -5px; top: 14px; width: 8px; height: 8px; border-radius: 50%; background: var(--primary); border: 2px solid var(--bg-sidebar); }
+    .timeline-item.is-err::before { background: var(--danger); }
+    .timeline-item.model-gpt::before { background: var(--success); }
+    .timeline-item.model-claude::before { background: var(--purple); }
+    .timeline-item.model-qwen::before { background: var(--warning); }
+    .timeline-item.model-gemini::before { background: var(--cyan); }
+    .timeline-item:hover { background: var(--bg-hover); border-left-color: var(--primary); }
+    .tl-time { font-size: 10px; color: var(--text-muted); }
+    .tl-user { font-size: 12px; font-weight: bold; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .tl-meta { font-size: 10px; color: var(--text-muted); display: flex; gap: 4px; align-items: center; }
+
+    /* Tooltip */
+    .timeline-item .tl-tooltip { display: none; position: absolute; left: 100%; top: 0; margin-left: 8px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px; padding: 8px; width: 220px; box-shadow: 0 4px 12px var(--shadow); z-index: 100; font-size: 11px; }
+    .timeline-item:hover .tl-tooltip { display: block; }
+    .tl-tooltip-preview { color: var(--text-secondary); margin-top: 4px; max-height: 60px; overflow: hidden; line-height: 1.4; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="app-layout">
+      <!-- Left sidebar -->
+      <div class="sidebar-left">
+        <div class="sidebar-header">
+          <button class="btn-select" @click="triggerSelect">&#128194; 选择 chat-history</button>
+          <input type="file" id="folder-input" webkitdirectory directory multiple @change="handleFolderSelect" style="display:none;">
+        </div>
+        <div class="file-list">
+          <div v-if="files.length===0" style="text-align:center;color:var(--text-muted);margin-top:24px;font-size:12px;">等待读取文件...</div>
+          <div class="date-grid">
+            <div class="date-item" v-for="entry in dateEntries" :key="entry.fileIndex"
+                 :class="{active: currentFileIndex===entry.fileIndex}"
+                 @click="selectFile(entry.fileIndex)">
+              <div class="date-label">
+                <span>{{ entry.dateStr }}</span>
+                <span class="date-period" :class="entry.period==='白天'?'day':'night'">{{ entry.period }}</span>
+              </div>
+              <span class="date-count" :class="'heat-'+entry.heatLevel">{{ entry.count }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main content -->
+      <div class="main-content">
+        <div class="main-header" v-if="currentFile">
+          <div class="header-top">
+            <span class="header-title">&#128196; {{ currentFile.name }}</span>
+            <div class="toolbar">
+              <button class="btn btn-ghost btn-sm" :class="{' btn-active':viewMode==='normal'}" @click="setViewMode('normal')">&#128172; 标准视图</button>
+              <button class="btn btn-ghost btn-sm" :class="{'btn-active':viewMode==='userGroup'}" @click="setViewMode('userGroup')">&#128101; 按用户聚合</button>
+              <button class="btn btn-ghost btn-sm" :class="{'btn-active':viewMode==='errorAnalysis'}" @click="setViewMode('errorAnalysis')">&#128680; 错误分析</button>
+              <button class="btn btn-ghost btn-sm" :class="{'btn-active':globalSearchMode}" @click="toggleGlobalSearch">&#127760; 全局搜索</button>
+              <button class="btn btn-ghost btn-sm" :class="{'btn-active':renderMarkdown}" @click="renderMarkdown=!renderMarkdown">MD {{ renderMarkdown?'ON':'OFF' }}</button>
+              <button class="btn btn-ghost btn-sm" :class="{'btn-active':statsExpanded}" @click="statsExpanded=!statsExpanded">&#128202; 统计</button>
+              <button class="btn btn-ghost btn-sm" @click="exportJSON">&#128229; JSON</button>
+              <button class="btn btn-ghost btn-sm" @click="exportCSV">&#128229; CSV</button>
+              <button class="theme-toggle" @click="toggleTheme">{{ isDark?'&#9728;':'&#127769;' }}</button>
+            </div>
+          </div>
+
+          <div class="search-bar-row">
+            <input type="text" class="search-box" :placeholder="globalSearchMode?'&#128269; 全局搜索所有文件...':'&#128269; 搜索 (空格分隔多关键词)'" v-model="filters.query">
+            <select class="filter-select" v-model="filters.type">
+              <option value="all">&#128172; 全部</option>
+              <option value="group">&#128101; 群聊</option>
+              <option value="private">&#128100; 私聊</option>
+            </select>
+            <select class="filter-select" v-model="filters.model" style="max-width:140px;">
+              <option value="all">&#129302; 全部模型</option>
+              <option v-for="m in availableModels" :key="m" :value="m">{{ m }}</option>
+            </select>
+            <label class="filter-checkbox">
+              <input type="checkbox" v-model="filters.onlyError">
+              <span style="color:var(--danger);">&#128680; 仅异常</span>
+            </label>
+            <span style="font-size:11px;color:var(--text-muted);">{{ globalSearchMode ? '全局 '+globalSearchTotalCount+' 条' : filteredLogs.length+' 条' }}</span>
+          </div>
+        </div>
+
+        <!-- Stats panel -->
+        <div class="stats-panel" :class="statsExpanded?'expanded':'collapsed'" v-if="currentFile">
+          <div class="stats-inner">
+            <div class="stat-section">
+              <h4>&#128202; 总览</h4>
+              <div class="stat-cards">
+                <div class="stat-card"><div class="num">{{ stats.total }}</div><div class="lbl">总调用</div></div>
+                <div class="stat-card"><div class="num" style="color:var(--success)">{{ stats.success }}</div><div class="lbl">成功</div></div>
+                <div class="stat-card err"><div class="num">{{ stats.errors }}</div><div class="lbl">异常</div></div>
+                <div class="stat-card"><div class="num" :style="{color:parseFloat(stats.errorRate)>10?'var(--danger)':'var(--warning)'}">{{ stats.errorRate }}%</div><div class="lbl">异常率</div></div>
+                <div class="stat-card"><div class="num" style="color:var(--cyan)">{{ fmtNum(stats.totalTokens) }}</div><div class="lbl">总Token</div></div>
+              </div>
+            </div>
+            <div class="stat-section">
+              <h4>&#129302; 模型使用排行</h4>
+              <div class="bar-row" v-for="m in stats.modelUsage.slice(0,8)" :key="m.name">
+                <span class="bar-label" :title="m.name">{{ m.name }}</span>
+                <div class="bar-track"><div class="bar-fill blue" :style="{width:m.pct+'%'}"></div></div>
+                <span class="bar-count">{{ m.count }}</span>
+              </div>
+            </div>
+            <div class="stat-section">
+              <h4>&#128100; 用户排行</h4>
+              <div class="bar-row" v-for="u in stats.userRanking.slice(0,8)" :key="u.name">
+                <span class="bar-label" :title="u.name">{{ u.name }}</span>
+                <div class="bar-track"><div class="bar-fill green" :style="{width:u.pct+'%'}"></div></div>
+                <span class="bar-count">{{ u.count }}</span>
+              </div>
+            </div>
+            <div class="stat-section">
+              <h4>&#128225; 节点分布</h4>
+              <div class="bar-row" v-for="p in stats.providerUsage.slice(0,8)" :key="p.name">
+                <span class="bar-label" :title="p.name">{{ p.name }}</span>
+                <div class="bar-track"><div class="bar-fill purple" :style="{width:p.pct+'%'}"></div></div>
+                <span class="bar-count">{{ p.count }}</span>
+              </div>
+            </div>
+            <div class="stat-section">
+              <h4>&#128336; 小时分布</h4>
+              <div class="hourly-chart">
+                <div class="hour-bar" v-for="h in stats.hourlyDist" :key="h.hour" :style="{height:h.pct+'%'}" :title="h.hour+':00 - '+h.count+'次'"></div>
+              </div>
+              <div class="hour-labels">
+                <span v-for="i in 24" :key="i">{{ (i-1)%6===0?(i-1):'' }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Log container -->
+        <div class="log-container" id="scroll-container">
+          <div class="empty-state" v-if="!currentFile">
+            <div style="font-size:40px;">&#128451;</div>
+            <div>纯本地解析，安全无服务端</div>
+            <div style="font-size:12px;">请在左侧选择 chat-history 文件夹，或直接拖拽 history_*.json 文件到页面</div>
+
+            <!-- Auto-detect banner -->
+            <div class="auto-detect-banner" v-if="detectedFiles.length">
+              <span class="auto-detect-icon">&#128269;</span>
+              <div class="auto-detect-info">
+                <div class="detect-title">已检测到当前目录下的历史记录文件</div>
+                <div class="detect-file">{{ detectedFiles.length }} 个 history_*.json 文件</div>
+              </div>
+              <div class="auto-detect-actions">
+                <button class="btn-auto confirm" @click="loadDetectedFiles">&#10004; 确认加载</button>
+                <button class="btn-auto dismiss" @click="detectedFiles=[]">忽略</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Global search results -->
+          <div v-else-if="globalSearchMode && filters.query.trim()">
+            <div v-if="globalSearchResults.length===0" style="text-align:center;color:var(--text-muted);padding:40px;">无全局搜索结果</div>
+            <div class="global-file-group" v-for="group in globalSearchResults" :key="group.fileName">
+              <div class="global-file-header">
+                <span>&#128196; {{ group.fileName }}</span>
+                <span>{{ group.logs.length }} 条匹配</span>
+              </div>
+              <div class="log-card" v-for="log in group.logs" :key="log._originalIndex" :class="{'is-error':log.isError}">
+                <div class="meta-bar">
+                  <div style="display:flex;gap:6px;align-items:center;">
+                    <span class="tag" :class="log.type==='group'?'group':'private'">{{ log.type==='group'?'群聊':'私聊' }}</span>
+                    <span class="tag error" v-if="log.isError">异常</span>
+                    <span>&#128336; {{ log.timestamp }}</span>
+                  </div>
+                </div>
+                <div class="chat-bubble" v-if="log.prompt">
+                  <div class="user-name">&#128100; {{ log.username }}</div>
+                  <div class="bubble-content bubble-user" v-html="highlightText(log.prompt)"></div>
+                </div>
+                <div class="chat-bubble">
+                  <div class="ai-name">&#129302; Neko</div>
+                  <div class="bubble-content" :class="log.isError?'bubble-error':'bubble-ai'" v-html="getReplyHtml(log)"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Error analysis view -->
+          <div v-else-if="viewMode==='errorAnalysis'">
+            <div class="error-section">
+              <h4>&#128680; 错误概览 (共 {{ errorAnalysis.totalErrors }} 个异常)</h4>
+              <div v-if="errorAnalysis.totalErrors===0" style="font-size:13px;color:var(--text-muted);padding:16px;text-align:center;">本文件无异常记录</div>
+              <div v-else>
+                <div class="stat-cards" style="margin-bottom:12px;">
+                  <div class="stat-card err"><div class="num">{{ errorAnalysis.totalErrors }}</div><div class="lbl">总异常</div></div>
+                </div>
+              </div>
+            </div>
+            <div class="error-section" v-if="errorAnalysis.patterns.length">
+              <h4>&#128270; 错误类型分布</h4>
+              <div class="error-pattern" v-for="p in errorAnalysis.patterns" :key="p.pattern">
+                <div>
+                  <div class="error-pattern-name">{{ p.pattern }}</div>
+                  <div class="error-pattern-meta">涉及模型: {{ p.models.join(', ') }}</div>
+                  <div class="error-pattern-meta">涉及节点: {{ p.providers.join(', ') }}</div>
+                </div>
+                <div class="error-pattern-count">{{ p.count }}</div>
+              </div>
+            </div>
+            <div class="error-section" v-if="errorAnalysis.perModel.length">
+              <h4>&#129302; 各模型异常数</h4>
+              <div class="bar-row" v-for="m in errorAnalysis.perModel" :key="m.name">
+                <span class="bar-label">{{ m.name }}</span>
+                <div class="bar-track"><div class="bar-fill" style="background:var(--danger);" :style="{width:m.pct+'%'}"></div></div>
+                <span class="bar-count">{{ m.count }}</span>
+              </div>
+            </div>
+            <div class="error-section" v-if="errorAnalysis.perProvider.length">
+              <h4>&#128225; 各节点异常数</h4>
+              <div class="bar-row" v-for="p in errorAnalysis.perProvider" :key="p.name">
+                <span class="bar-label">{{ p.name }}</span>
+                <div class="bar-track"><div class="bar-fill" style="background:var(--warning);" :style="{width:p.pct+'%'}"></div></div>
+                <span class="bar-count">{{ p.count }}</span>
+              </div>
+            </div>
+            <div class="error-section" v-if="errorAnalysis.entries.length">
+              <h4>&#128196; 异常记录列表</h4>
+              <div class="log-card is-error" v-for="log in errorAnalysis.entries.slice(0,50)" :key="'err-'+log._originalIndex" style="margin:8px 0;">
+                <div class="meta-bar">
+                  <div style="display:flex;gap:6px;align-items:center;">
+                    <span class="tag error">异常</span>
+                    <span>&#128336; {{ log.timestamp }}</span>
+                    <span>{{ log.username }}</span>
+                  </div>
+                  <span>{{ log.modelName }} | {{ log.apiRemark }}</span>
+                </div>
+                <div class="bubble-content bubble-error" style="font-size:12px;">{{ log.reply || '(空回复)' }}</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- User group view -->
+          <div v-else-if="viewMode==='userGroup'">
+            <div v-if="userGroups.length===0" style="text-align:center;color:var(--text-muted);padding:40px;">无数据</div>
+            <div class="user-group" v-for="(ug, gi) in userGroups" :key="'ug-'+gi">
+              <div class="user-group-header" @click="ug.expanded=!ug.expanded">
+                <div style="display:flex;align-items:center;gap:6px;">
+                  <span>{{ ug.expanded?'&#9660;':'&#9654;' }}</span>
+                  <span>&#128100; {{ ug.username }}</span>
+                </div>
+                <div class="user-group-stats">
+                  <span>{{ ug.logs.length }} 条</span>
+                  <span v-if="ug.errorCount" style="color:var(--danger);">{{ ug.errorCount }} 异常</span>
+                </div>
+              </div>
+              <div class="user-group-body" v-show="ug.expanded">
+                <div class="log-card" v-for="log in ug.logs" :key="'ug-log-'+log._originalIndex"
+                     :class="{'is-error':log.isError}">
+                  <div class="meta-bar">
+                    <div style="display:flex;gap:6px;align-items:center;">
+                      <span class="tag" :class="log.type==='group'?'group':'private'">{{ log.type==='group'?'群聊':'私聊' }}</span>
+                      <span class="tag error" v-if="log.isError">异常</span>
+                      <span>&#128336; {{ log.timestamp }}</span>
+                    </div>
+                    <button class="copy-btn" @click="copyMessage(log,$event)">复制</button>
+                  </div>
+                  <div class="chat-bubble" v-if="log.prompt">
+                    <div class="user-name">&#128100; {{ log.username }}</div>
+                    <div class="bubble-content bubble-user" v-html="highlightText(log.prompt)"></div>
+                  </div>
+                  <div class="chat-bubble">
+                    <div class="ai-name">&#129302; Neko</div>
+                    <div class="bubble-content" :class="[log.isError?'bubble-error':'bubble-ai', renderMarkdown&&!log.isError?'md-rendered':'']" v-html="getReplyHtml(log)"></div>
+                  </div>
+                  <div class="api-info">
+                    <span class="api-info-item">&#9889; <b>{{ log.modelName }}</b></span>
+                    <span class="api-info-item">&#128225; {{ log.apiRemark }}</span>
+                    <span class="api-info-item" v-if="log.promptLength">P:{{ log.promptLength }} R:{{ log.replyLength }} C:{{ log.contextLength }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Normal view -->
+          <div v-else>
+            <div v-if="filteredLogs.length===0" style="text-align:center;color:var(--text-muted);padding:40px;">无匹配记录</div>
+
+            <div class="log-card" v-for="log in paginatedLogs" :key="log._originalIndex"
+                 :id="'log-card-'+log._originalIndex"
+                 :class="{'is-error':log.isError, 'highlight-target':targetLogIndex===log._originalIndex}">
+              <div class="meta-bar">
+                <div style="display:flex;gap:6px;align-items:center;">
+                  <span class="tag" :class="log.type==='group'?'group':'private'">{{ log.type==='group'?'群聊':'私聊' }}</span>
+                  <span class="tag error" v-if="log.isError">异常</span>
+                  <span>&#128336; {{ log.timestamp }}</span>
+                </div>
+                <div style="display:flex;gap:6px;align-items:center;">
+                  <span style="font-size:11px;">ID: {{ log.channelId||log.userId||'无' }}</span>
+                  <button class="copy-btn" @click="copyMessage(log,$event)">复制</button>
+                </div>
+              </div>
+
+              <div class="chat-bubble" v-if="log.prompt">
+                <div class="user-name">&#128100; {{ log.username }}</div>
+                <div class="bubble-content bubble-user" v-html="highlightText(log.prompt)"></div>
+              </div>
+              <div class="chat-bubble">
+                <div class="ai-name">&#129302; Neko</div>
+                <div class="bubble-content" :class="[log.isError?'bubble-error':'bubble-ai', renderMarkdown&&!log.isError?'md-rendered':'']" v-html="getReplyHtml(log)"></div>
+              </div>
+
+              <div class="api-info">
+                <span class="api-info-item">&#9889; <b>{{ log.modelName }}</b></span>
+                <span class="api-info-item">&#128225; {{ log.apiRemark }}</span>
+                <span class="api-info-item" v-if="log.promptLength!==undefined">P:{{ log.promptLength }} R:{{ log.replyLength||0 }} C:{{ log.contextLength||0 }}</span>
+              </div>
+            </div>
+
+            <!-- Pagination -->
+            <div class="pagination" v-if="totalPages>1">
+              <button class="page-btn" :disabled="currentPage<=1" @click="goToPage(currentPage-1)">&laquo; 上一页</button>
+              <template v-for="p in visiblePages" :key="'p-'+p">
+                <span v-if="p==='...'" style="color:var(--text-muted);">...</span>
+                <button v-else class="page-btn" :class="{active:p===currentPage}" @click="goToPage(p)">{{ p }}</button>
+              </template>
+              <button class="page-btn" :disabled="currentPage>=totalPages" @click="goToPage(currentPage+1)">下一页 &raquo;</button>
+              <div class="page-info">
+                每页
+                <select class="page-size-select" v-model.number="pageSize">
+                  <option :value="30">30</option>
+                  <option :value="50">50</option>
+                  <option :value="100">100</option>
+                </select>
+                条 | 共 {{ filteredLogs.length }} 条
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right sidebar timeline -->
+      <div class="sidebar-right" v-if="currentFile">
+        <div class="nav-header">
+          <span>&#128205; 导航</span>
+          <span style="color:var(--text-muted);font-weight:normal;font-size:11px;">{{ timelineLogs.length }} 条</span>
+        </div>
+        <div class="timeline-stats">
+          <span style="color:var(--success);">&#10004; {{ timelineStats.success }}</span>
+          <span style="color:var(--danger);">&#10008; {{ timelineStats.errors }}</span>
+          <span v-for="m in timelineStats.models" :key="m.name" :style="{color:m.color}">{{ m.name }}({{ m.count }})</span>
+        </div>
+        <div class="timeline">
+          <div v-if="timelineLogs.length===0" style="text-align:center;color:var(--text-muted);font-size:11px;margin-top:20px;">暂无</div>
+          <div class="timeline-item" v-for="log in timelineLogs" :key="'tl-'+log._originalIndex"
+               :class="{'is-err':log.isError, [getModelClass(log.modelName)]:!log.isError}"
+               @click="scrollToLog(log._originalIndex)">
+            <div class="tl-time">{{ extractTime(log.timestamp) }}</div>
+            <div class="tl-user">{{ log.username }}</div>
+            <div class="tl-meta">
+              <span :style="{color:getModelColor(log.modelName)}">{{ truncate(log.modelName,10) }}</span>
+              <span v-if="log.isError" style="color:var(--danger);">(失败)</span>
+            </div>
+            <div class="tl-tooltip">
+              <div style="font-weight:bold;">{{ log.username }} @ {{ log.timestamp }}</div>
+              <div class="tl-tooltip-preview">{{ truncate(log.prompt||'', 80) }}</div>
+              <div style="margin-top:4px;font-size:10px;opacity:0.7;">{{ log.modelName }} | {{ log.apiRemark }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Drop overlay -->
+    <div class="drop-overlay" v-if="showDropZone">
+      <div class="drop-overlay-inner">
+        <div class="drop-icon">&#128230;</div>
+        <div class="drop-text">释放文件以加载</div>
+        <div class="drop-hint">支持 history_*.json 文件</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref, computed, watch, nextTick, onMounted } = Vue;
+
+    createApp({
+      setup() {
+        // Theme
+        const isDark = ref(localStorage.getItem('hv-theme')==='dark');
+        const applyTheme = () => document.documentElement.setAttribute('data-theme', isDark.value?'dark':'light');
+        applyTheme();
+        const toggleTheme = () => { isDark.value=!isDark.value; localStorage.setItem('hv-theme',isDark.value?'dark':'light'); applyTheme(); };
+
+        // State
+        const files = ref([]);
+        const currentFileIndex = ref(-1);
+        const viewMode = ref('normal');
+        const globalSearchMode = ref(false);
+        const renderMarkdown = ref(false);
+        const statsExpanded = ref(false);
+        const currentPage = ref(1);
+        const showDropZone = ref(false);
+        const detectedFiles = ref([]);
+        let dropCounter = 0;
+        const pageSize = ref(30);
+        const targetLogIndex = ref(-1);
+        const filters = ref({query:'',type:'all',model:'all',onlyError:false});
+
+        // File loading
+        const triggerSelect = () => document.getElementById('folder-input').click();
+        const readFileAsync = f => new Promise((res,rej) => { const r=new FileReader(); r.onload=e=>res(e.target.result); r.onerror=e=>rej(e); r.readAsText(f); });
+
+        const handleFolderSelect = async (event) => {
+          const sel = Array.from(event.target.files);
+          const jsons = sel.filter(f => f.name.endsWith('.json') && f.name.startsWith('history_'));
+          if (!jsons.length) { alert('未找到 history_*.json 文件！'); return; }
+          await loadHistoryFiles(jsons);
+        };
+
+        const loadHistoryFiles = async (jsons) => {
+          jsons.sort((a,b) => b.name.localeCompare(a.name));
+          const parsed = [];
+          for (const file of jsons) {
+            try {
+              const text = await readFileAsync(file);
+              const logs = JSON.parse(text);
+              const pl = Array.isArray(logs) ? logs.reverse().map((l,i)=>({...l,_originalIndex:i})) : [];
+              parsed.push({name:file.name, logs:pl});
+            } catch(e) { console.error(e); }
+          }
+          files.value = parsed;
+          if (parsed.length) selectFile(0);
+        };
+
+        const selectFile = i => {
+          currentFileIndex.value = i;
+          filters.value = {query:'',type:'all',model:'all',onlyError:false};
+          targetLogIndex.value = -1; currentPage.value = 1; globalSearchMode.value = false;
+          const c = document.getElementById('scroll-container'); if(c) c.scrollTop=0;
+        };
+
+        const setViewMode = m => { viewMode.value=m; currentPage.value=1; const c=document.getElementById('scroll-container'); if(c)c.scrollTop=0; };
+        const toggleGlobalSearch = () => { globalSearchMode.value=!globalSearchMode.value; if(globalSearchMode.value)viewMode.value='normal'; };
+
+        // Computed
+        const currentFile = computed(() => currentFileIndex.value>=0 && files.value.length ? files.value[currentFileIndex.value] : null);
+
+        const dateEntries = computed(() => {
+          if (!files.value.length) return [];
+          const max = Math.max(...files.value.map(f=>f.logs.length),1);
+          return files.value.map((f,i) => {
+            const m = f.name.match(/history_(\d{4}-\d{2}-\d{2})_(Day|Night)/);
+            const dateStr = m?m[1].substring(5):f.name;
+            const period = m?(m[2]==='Day'?'白天':'夜间'):'';
+            const ratio = f.logs.length/max;
+            let heat = ratio>0.75?4:ratio>0.5?3:ratio>0.25?2:f.logs.length>0?1:0;
+            return {fileIndex:i,fileName:f.name,dateStr,period,count:f.logs.length,heatLevel:heat};
+          });
+        });
+
+        const availableModels = computed(() => {
+          if (!currentFile.value) return [];
+          const s = new Set(); currentFile.value.logs.forEach(l=>{if(l.modelName)s.add(l.modelName);}); return Array.from(s).sort();
+        });
+
+        const filteredLogs = computed(() => {
+          if (!currentFile.value) return [];
+          return currentFile.value.logs.filter(l => {
+            if (filters.value.type!=='all' && l.type!==filters.value.type) return false;
+            if (filters.value.onlyError && !l.isError) return false;
+            if (filters.value.model!=='all' && l.modelName!==filters.value.model) return false;
+            if (filters.value.query.trim()) {
+              const kws = filters.value.query.toLowerCase().split(/\s+/);
+              const target = `${l.prompt||''} ${l.reply||''} ${l.username||''} ${l.apiRemark||''} ${l.modelName||''}`.toLowerCase();
+              if (!kws.every(k=>target.includes(k))) return false;
+            }
+            return true;
+          });
+        });
+
+        watch([filters, ()=>filters.value.query, ()=>filters.value.type, ()=>filters.value.model, ()=>filters.value.onlyError], ()=>{currentPage.value=1;}, {deep:true});
+
+        // Pagination
+        const totalPages = computed(() => Math.max(1,Math.ceil(filteredLogs.value.length/pageSize.value)));
+        const paginatedLogs = computed(() => {
+          const s = (currentPage.value-1)*pageSize.value;
+          return filteredLogs.value.slice(s, s+pageSize.value);
+        });
+        const visiblePages = computed(() => {
+          const t=totalPages.value, c=currentPage.value;
+          if (t<=7) return Array.from({length:t},(_,i)=>i+1);
+          const pages=[1];
+          if (c>3) pages.push('...');
+          for (let i=Math.max(2,c-1); i<=Math.min(t-1,c+1); i++) pages.push(i);
+          if (c<t-2) pages.push('...');
+          if (t>1) pages.push(t);
+          return pages;
+        });
+        const goToPage = p => { currentPage.value=Math.max(1,Math.min(totalPages.value,p)); nextTick(()=>{const c=document.getElementById('scroll-container');if(c)c.scrollTop=0;}); };
+
+        // Stats
+        const extractHour = ts => { if(!ts)return -1; const p=ts.split(' '); if(p.length<2)return -1; const h=parseInt(p[1].split(':')[0],10); return isNaN(h)?-1:h; };
+        const extractTime = ts => { if(!ts)return ''; const p=ts.split(' '); return p.length>1?p[1]:ts; };
+        const truncate = (s,n) => !s?'':(s.length>n?s.substring(0,n)+'...':s);
+        const fmtNum = n => { if(!n)return '0'; if(n>=1e6)return (n/1e6).toFixed(1)+'M'; if(n>=1e3)return (n/1e3).toFixed(1)+'K'; return String(n); };
+
+        const stats = computed(() => {
+          if (!currentFile.value) return {total:0,success:0,errors:0,errorRate:'0.0',totalTokens:0,modelUsage:[],userRanking:[],providerUsage:[],hourlyDist:[]};
+          const logs = currentFile.value.logs;
+          const total=logs.length, errors=logs.filter(l=>l.isError).length, success=total-errors;
+          const errorRate=total?(errors/total*100).toFixed(1):'0.0';
+          let totalTokens=0;
+          logs.forEach(l=>{totalTokens+=(l.promptLength||0)+(l.replyLength||0)+(l.contextLength||0);});
+
+          const modelMap={};
+          logs.forEach(l=>{const m=l.modelName||'?'; modelMap[m]=(modelMap[m]||0)+1;});
+          const modelArr=Object.entries(modelMap).sort((a,b)=>b[1]-a[1]);
+          const maxM=modelArr.length?modelArr[0][1]:1;
+          const modelUsage=modelArr.map(([n,c])=>({name:n,count:c,pct:(c/maxM*100).toFixed(1)}));
+
+          const userMap={};
+          logs.forEach(l=>{const u=l.username||l.userId||'?'; userMap[u]=(userMap[u]||0)+1;});
+          const userArr=Object.entries(userMap).sort((a,b)=>b[1]-a[1]).slice(0,15);
+          const maxU=userArr.length?userArr[0][1]:1;
+          const userRanking=userArr.map(([n,c])=>({name:n,count:c,pct:(c/maxU*100).toFixed(1)}));
+
+          const provMap={};
+          logs.forEach(l=>{const p=l.apiRemark||'?'; provMap[p]=(provMap[p]||0)+1;});
+          const provArr=Object.entries(provMap).sort((a,b)=>b[1]-a[1]);
+          const maxP=provArr.length?provArr[0][1]:1;
+          const providerUsage=provArr.map(([n,c])=>({name:n,count:c,pct:(c/maxP*100).toFixed(1)}));
+
+          const hourMap={}; for(let i=0;i<24;i++)hourMap[i]=0;
+          logs.forEach(l=>{const h=extractHour(l.timestamp);if(h>=0)hourMap[h]++;});
+          const maxH=Math.max(...Object.values(hourMap),1);
+          const hourlyDist=Array.from({length:24},(_,i)=>({hour:i,count:hourMap[i]||0,pct:((hourMap[i]||0)/maxH*100).toFixed(1)}));
+
+          return {total,success,errors,errorRate,totalTokens,modelUsage,userRanking,providerUsage,hourlyDist};
+        });
+
+        // Error analysis
+        const errorAnalysis = computed(() => {
+          if (!currentFile.value) return {totalErrors:0,patterns:[],perModel:[],perProvider:[],entries:[]};
+          const errorLogs = currentFile.value.logs.filter(l=>l.isError);
+          const totalErrors = errorLogs.length;
+
+          const patMap={};
+          errorLogs.forEach(l => {
+            const r=(l.reply||'').trim().toLowerCase();
+            let pat;
+            if (!r||r==='(空)') pat='空回复';
+            else if (r.includes('forbidden')) pat='Forbidden (403)';
+            else if (r.includes('timeout')||r.includes('timed out')) pat='超时';
+            else if (r.includes('rate limit')||r.includes('429')) pat='速率限制 (429)';
+            else if (r.includes('unauthorized')||r.includes('401')) pat='认证失败 (401)';
+            else if (r.includes('502')||r.includes('bad gateway')) pat='网关错误 (502)';
+            else if (r.includes('503')||r.includes('service unavailable')) pat='服务不可用 (503)';
+            else if (r.includes('500')||r.includes('internal server')) pat='内部错误 (500)';
+            else if ((l.reply||'').length<30) pat=l.reply||'未知';
+            else pat='其他';
+            if (!patMap[pat]) patMap[pat]={count:0,models:new Set(),providers:new Set()};
+            patMap[pat].count++; if(l.modelName)patMap[pat].models.add(l.modelName); if(l.apiRemark)patMap[pat].providers.add(l.apiRemark);
+          });
+          const patterns=Object.entries(patMap).sort((a,b)=>b[1].count-a[1].count).map(([p,d])=>({pattern:p,count:d.count,models:Array.from(d.models),providers:Array.from(d.providers)}));
+
+          const mErrMap={};
+          errorLogs.forEach(l=>{const m=l.modelName||'?';mErrMap[m]=(mErrMap[m]||0)+1;});
+          const mErrArr=Object.entries(mErrMap).sort((a,b)=>b[1]-a[1]);
+          const maxME=mErrArr.length?mErrArr[0][1]:1;
+          const perModel=mErrArr.map(([n,c])=>({name:n,count:c,pct:(c/maxME*100).toFixed(1)}));
+
+          const pErrMap={};
+          errorLogs.forEach(l=>{const p=l.apiRemark||'?';pErrMap[p]=(pErrMap[p]||0)+1;});
+          const pErrArr=Object.entries(pErrMap).sort((a,b)=>b[1]-a[1]);
+          const maxPE=pErrArr.length?pErrArr[0][1]:1;
+          const perProvider=pErrArr.map(([n,c])=>({name:n,count:c,pct:(c/maxPE*100).toFixed(1)}));
+
+          return {totalErrors,patterns,perModel,perProvider,entries:errorLogs};
+        });
+
+        // User groups
+        const userGroups = computed(() => {
+          const logs=filteredLogs.value;
+          const map={}, order=[];
+          logs.forEach(l => {
+            const k=l.userId||l.username||'?';
+            if (!map[k]) { map[k]={username:l.username||l.userId||'未知',logs:[],errorCount:0,expanded:true}; order.push(k); }
+            map[k].logs.push(l); if(l.isError)map[k].errorCount++;
+          });
+          return order.map(k=>map[k]).sort((a,b)=>b.logs.length-a.logs.length);
+        });
+
+        // Global search
+        const globalSearchResults = computed(() => {
+          if (!globalSearchMode.value||!filters.value.query.trim()) return [];
+          const kws=filters.value.query.toLowerCase().split(/\s+/);
+          const results=[];
+          files.value.forEach(f => {
+            const matched=f.logs.filter(l=>{
+              const t=`${l.prompt||''} ${l.reply||''} ${l.username||''} ${l.apiRemark||''} ${l.modelName||''}`.toLowerCase();
+              return kws.every(k=>t.includes(k));
+            });
+            if (matched.length) results.push({fileName:f.name,logs:matched});
+          });
+          return results;
+        });
+        const globalSearchTotalCount = computed(() => globalSearchResults.value.reduce((s,g)=>s+g.logs.length,0));
+
+        // Timeline
+        const timelineLogs = computed(() => viewMode.value==='normal'?paginatedLogs.value:filteredLogs.value);
+        const timelineStats = computed(() => {
+          const logs=timelineLogs.value;
+          const success=logs.filter(l=>!l.isError).length, errors=logs.filter(l=>l.isError).length;
+          const modelMap={};
+          logs.forEach(l=>{const m=l.modelName||'?';modelMap[m]=(modelMap[m]||0)+1;});
+          const colors=['#1890ff','#52c41a','#fa8c16','#722ed1','#13c2c2'];
+          const models=Object.entries(modelMap).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([n,c],i)=>({name:truncate(n,12),count:c,color:colors[i]||colors[0]}));
+          return {success,errors,models};
+        });
+
+        // Helpers
+        const escapeHtml = t => { if(!t)return ''; const d=document.createElement('div'); d.textContent=t; return d.innerHTML; };
+        const highlightText = t => {
+          if (!t) return '(空)';
+          let html = escapeHtml(t);
+          if (filters.value.query.trim()) {
+            filters.value.query.toLowerCase().split(/\s+/).forEach(kw=>{
+              if(!kw)return;
+              const re=new RegExp('('+kw.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','gi');
+              html=html.replace(re,'<span class="search-highlight">$1</span>');
+            });
+          }
+          return html;
+        };
+        const getReplyHtml = log => {
+          const reply=log.reply||'(空 / 无返回内容)';
+          if (log.isError) return filters.value.query.trim()?highlightText(reply):escapeHtml(reply);
+          if (renderMarkdown.value && typeof marked!=='undefined') {
+            try {
+              let html=marked.parse(reply);
+              if (filters.value.query.trim()) {
+                filters.value.query.toLowerCase().split(/\s+/).forEach(kw=>{
+                  if(!kw)return;
+                  const re=new RegExp('('+kw.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','gi');
+                  html=html.replace(re,'<span class="search-highlight">$1</span>');
+                });
+              }
+              return html;
+            } catch(e) { return escapeHtml(reply); }
+          }
+          return filters.value.query.trim()?highlightText(reply):escapeHtml(reply);
+        };
+        const getModelClass = mn => {
+          if(!mn)return ''; const m=mn.toLowerCase();
+          if(m.includes('gpt'))return 'model-gpt'; if(m.includes('claude'))return 'model-claude';
+          if(m.includes('qwen'))return 'model-qwen'; if(m.includes('gemini'))return 'model-gemini'; return '';
+        };
+        const getModelColor = mn => {
+          if(!mn)return 'var(--primary)'; const m=mn.toLowerCase();
+          if(m.includes('gpt'))return 'var(--success)'; if(m.includes('claude'))return 'var(--purple)';
+          if(m.includes('qwen'))return 'var(--warning)'; if(m.includes('gemini'))return 'var(--cyan)'; return 'var(--primary)';
+        };
+
+        // Scroll
+        const scrollToLog = idx => {
+          targetLogIndex.value=idx;
+          nextTick(()=>{
+            const el=document.getElementById('log-card-'+idx);
+            if(el){const c=document.getElementById('scroll-container');if(c){c.scrollTo({top:el.offsetTop-c.offsetTop-20,behavior:'smooth'});}}
+            setTimeout(()=>{if(targetLogIndex.value===idx)targetLogIndex.value=-1;},2500);
+          });
+        };
+
+        // Copy
+        const copyMessage = async (log, event) => {
+          const text = `[${log.timestamp}] ${log.username}:\n提问: ${log.prompt||''}\n回复: ${log.reply||''}\n模型: ${log.modelName} | 节点: ${log.apiRemark}`;
+          try { await navigator.clipboard.writeText(text); } catch(e) {
+            const ta=document.createElement('textarea');ta.value=text;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);
+          }
+          const btn=event.target; btn.textContent='已复制'; btn.classList.add('copied');
+          setTimeout(()=>{btn.textContent='复制';btn.classList.remove('copied');},1500);
+        };
+
+        // Export
+        const exportJSON = () => {
+          const data=filteredLogs.value.map(l=>{const{_originalIndex,...rest}=l;return rest;});
+          download(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}), 'export_'+(currentFile.value?currentFile.value.name:'data')+'.json');
+        };
+        const exportCSV = () => {
+          const fields=['timestamp','type','channelId','userId','username','prompt','reply','isError','promptLength','replyLength','contextLength','modelName','apiRemark'];
+          const header=fields.join(',');
+          const rows=filteredLogs.value.map(l=>fields.map(f=>{let v=l[f];if(v==null)v='';v=String(v).replace(/"/g,'""');return (String(v).includes(',')||String(v).includes('\n')||String(v).includes('"'))?'"'+v+'"':v;}).join(','));
+          download(new Blob(['\uFEFF'+header+'\n'+rows.join('\n')],{type:'text/csv;charset=utf-8'}), 'export_'+(currentFile.value?currentFile.value.name.replace('.json',''):'data')+'.csv');
+        };
+        const download = (blob,name) => {
+          const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
+        };
+
+        onMounted(() => { if(typeof marked!=='undefined'){marked.setOptions({breaks:true,gfm:true});} });
+
+        // Auto-detect same-directory history files
+        onMounted(async () => {
+          const candidates = [];
+          const today = new Date();
+          for (let d = 0; d < 14; d++) {
+            const dt = new Date(today); dt.setDate(dt.getDate() - d);
+            const ds = dt.toISOString().slice(0,10);
+            candidates.push(`history_${ds}_Day.json`);
+            candidates.push(`history_${ds}_Night.json`);
+          }
+          const found = [];
+          const dirs = ['./', './chat-history/'];
+          for (const dir of dirs) {
+            const probes = candidates.map(async name => {
+              try {
+                const resp = await fetch(dir + name, { method: 'GET', cache: 'no-cache' });
+                if (resp.ok) {
+                  const text = await resp.text();
+                  JSON.parse(text); // validate
+                  found.push({ name, text, dir });
+                }
+              } catch(e) { /* ignore */ }
+            });
+            await Promise.all(probes);
+            if (found.length > 0) break; // use first directory that has files
+          }
+          if (found.length > 0) { detectedFiles.value = found; }
+        });
+
+        const loadDetectedFiles = () => {
+          if (!detectedFiles.value.length) return;
+          const items = detectedFiles.value.slice().sort((a,b) => b.name.localeCompare(a.name));
+          const parsed = [];
+          for (const item of items) {
+            try {
+              const logs = JSON.parse(item.text);
+              const pl = Array.isArray(logs) ? logs.reverse().map((l,i)=>({...l,_originalIndex:i})) : [];
+              parsed.push({ name: item.name, logs: pl });
+            } catch(e) { console.error(e); }
+          }
+          if (parsed.length) {
+            files.value = parsed;
+            selectFile(0);
+            detectedFiles.value = [];
+          }
+        };
+
+        // Drag-drop file loading
+        onMounted(() => {
+          document.addEventListener('dragenter', e => { e.preventDefault(); dropCounter++; showDropZone.value = true; });
+          document.addEventListener('dragover', e => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; });
+          document.addEventListener('dragleave', e => { e.preventDefault(); dropCounter--; if (dropCounter <= 0) { dropCounter = 0; showDropZone.value = false; } });
+          document.addEventListener('drop', e => {
+            e.preventDefault(); dropCounter = 0; showDropZone.value = false;
+            const droppedFiles = Array.from(e.dataTransfer.files);
+            const jsons = droppedFiles.filter(f => f.name.endsWith('.json') && f.name.startsWith('history_'));
+            if (jsons.length > 0) { loadHistoryFiles(jsons); }
+            else if (droppedFiles.length > 0) { alert('请拖入 history_*.json 文件'); }
+          });
+        });
+
+        return {
+          isDark,toggleTheme,files,currentFileIndex,currentFile,selectFile,triggerSelect,handleFolderSelect,showDropZone,detectedFiles,loadDetectedFiles,
+          viewMode,setViewMode,globalSearchMode,toggleGlobalSearch,renderMarkdown,statsExpanded,
+          filters,availableModels,filteredLogs,
+          currentPage,pageSize,totalPages,paginatedLogs,visiblePages,goToPage,
+          stats,fmtNum,errorAnalysis,userGroups,
+          globalSearchResults,globalSearchTotalCount,
+          timelineLogs,timelineStats,scrollToLog,targetLogIndex,
+          dateEntries,extractTime,truncate,escapeHtml,highlightText,getReplyHtml,
+          getModelClass,getModelColor,copyMessage,exportJSON,exportCSV
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

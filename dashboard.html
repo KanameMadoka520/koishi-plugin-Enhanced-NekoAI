@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>NekoAI - 统一控制面板</title>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <style>
+    :root {
+      --bg: #0f1923; --bg2: #1a2736; --bg3: #223344; --bg4: #2a3f55;
+      --text: #e0e8f0; --text2: #8899aa; --text3: #556677;
+      --accent: #00d4ff; --accent2: #0099cc; --accent-glow: rgba(0,212,255,0.15);
+      --green: #00e676; --red: #ff5252; --orange: #ffab40; --purple: #b388ff; --pink: #ff80ab; --yellow: #ffd740;
+      --border: #2a3f55; --radius: 10px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--bg4); border-radius: 3px; }
+
+    .dashboard { max-width: 1400px; margin: 0 auto; padding: 20px; }
+
+    /* Header */
+    .dash-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; padding: 20px 28px; background: linear-gradient(135deg, var(--bg2), var(--bg3)); border-radius: var(--radius); border: 1px solid var(--border); }
+    .dash-title { font-size: 24px; font-weight: 700; display: flex; align-items: center; gap: 12px; }
+    .dash-title .logo { font-size: 32px; }
+    .dash-title .sub { font-size: 13px; color: var(--text2); font-weight: 400; margin-left: 8px; }
+    .header-actions { display: flex; gap: 8px; align-items: center; }
+    .header-time { font-size: 12px; color: var(--text2); font-family: monospace; }
+
+    /* Status Pulse */
+    .pulse { width: 10px; height: 10px; border-radius: 50%; display: inline-block; position: relative; }
+    .pulse.on { background: var(--green); box-shadow: 0 0 8px var(--green); }
+    .pulse.off { background: var(--red); box-shadow: 0 0 8px var(--red); }
+    .pulse.warn { background: var(--orange); box-shadow: 0 0 8px var(--orange); }
+    .pulse.on::after { content:''; position:absolute; top:-3px; left:-3px; width:16px; height:16px; border-radius:50%; border:2px solid var(--green); animation: pulseRing 2s infinite; }
+    @keyframes pulseRing { 0%{opacity:1;transform:scale(1)} 100%{opacity:0;transform:scale(1.8)} }
+
+    /* Buttons */
+    .btn { padding: 7px 14px; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; transition: all 0.2s; display: inline-flex; align-items: center; gap: 5px; color: #fff; }
+    .btn:hover { transform: translateY(-1px); filter: brightness(1.15); }
+    .btn-accent { background: var(--accent2); }
+    .btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--text2); }
+    .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+    .btn-sm { padding: 4px 10px; font-size: 11px; }
+
+    /* Grid */
+    .grid { display: grid; gap: 16px; }
+    .grid-2 { grid-template-columns: 1fr 1fr; }
+    .grid-3 { grid-template-columns: 1fr 1fr 1fr; }
+    .grid-4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
+    @media(max-width:900px) { .grid-2,.grid-3,.grid-4 { grid-template-columns: 1fr; } }
+
+    /* Cards */
+    .card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; transition: border-color 0.3s; }
+    .card:hover { border-color: var(--accent2); }
+    .card-title { font-size: 14px; font-weight: 600; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; color: var(--accent); }
+    .card-title .icon { font-size: 18px; }
+
+    /* Stat Cards */
+    .stat-card { text-align: center; padding: 20px 14px; }
+    .stat-value { font-size: 36px; font-weight: 700; line-height: 1.1; }
+    .stat-label { font-size: 12px; color: var(--text2); margin-top: 6px; }
+    .stat-value.green { color: var(--green); }
+    .stat-value.accent { color: var(--accent); }
+    .stat-value.orange { color: var(--orange); }
+    .stat-value.purple { color: var(--purple); }
+    .stat-value.pink { color: var(--pink); }
+
+    /* Tables */
+    .tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .tbl th { text-align: left; padding: 8px 10px; color: var(--text2); font-weight: 600; border-bottom: 1px solid var(--border); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .tbl td { padding: 8px 10px; border-bottom: 1px solid rgba(42,63,85,0.5); vertical-align: middle; }
+    .tbl tr:hover td { background: rgba(0,212,255,0.04); }
+    .tbl .mono { font-family: monospace; font-size: 12px; }
+    .tbl .truncate { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    /* Tags */
+    .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+    .tag-blue { background: rgba(0,212,255,0.15); color: var(--accent); }
+    .tag-green { background: rgba(0,230,118,0.15); color: var(--green); }
+    .tag-orange { background: rgba(255,171,64,0.15); color: var(--orange); }
+    .tag-purple { background: rgba(179,136,255,0.15); color: var(--purple); }
+    .tag-red { background: rgba(255,82,82,0.15); color: var(--red); }
+    .tag-pink { background: rgba(255,128,171,0.15); color: var(--pink); }
+
+    /* Memory bars */
+    .mem-bar-wrap { margin-bottom: 10px; }
+    .mem-bar-label { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px; }
+    .mem-bar-label .name { color: var(--text); }
+    .mem-bar-label .count { color: var(--text2); font-family: monospace; }
+    .mem-bar { height: 8px; background: var(--bg4); border-radius: 4px; overflow: hidden; position: relative; }
+    .mem-bar-fill { height: 100%; border-radius: 4px; transition: width 0.6s ease; }
+    .mem-bar-fill.low { background: linear-gradient(90deg, #00e676, #69f0ae); }
+    .mem-bar-fill.mid { background: linear-gradient(90deg, #ffab40, #ffd740); }
+    .mem-bar-fill.high { background: linear-gradient(90deg, #ff5252, #ff8a80); }
+
+    /* Personality Cards */
+    .persona-card { background: var(--bg3); border-radius: 8px; padding: 12px; margin-bottom: 8px; border-left: 3px solid var(--accent); transition: 0.2s; }
+    .persona-card:hover { border-left-color: var(--green); }
+    .persona-card.active { border-left-color: var(--green); background: rgba(0,230,118,0.06); }
+    .persona-name { font-size: 13px; font-weight: 600; margin-bottom: 4px; display: flex; align-items: center; gap: 6px; }
+    .persona-desc { font-size: 11px; color: var(--text2); line-height: 1.5; max-height: 40px; overflow: hidden; text-overflow: ellipsis; }
+
+    /* Config items */
+    .cfg-row { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; border-bottom: 1px solid rgba(42,63,85,0.4); font-size: 13px; }
+    .cfg-row:last-child { border-bottom: none; }
+    .cfg-key { color: var(--text2); }
+    .cfg-val { font-family: monospace; color: var(--text); font-size: 12px; text-align: right; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .cfg-val.bool-on { color: var(--green); }
+    .cfg-val.bool-off { color: var(--red); }
+
+    /* Quick links */
+    .quick-link { display: flex; align-items: center; gap: 12px; padding: 14px; background: var(--bg3); border-radius: 8px; border: 1px solid var(--border); cursor: pointer; transition: 0.2s; text-decoration: none; color: var(--text); }
+    .quick-link:hover { border-color: var(--accent); background: var(--bg4); transform: translateY(-2px); }
+    .quick-link .ql-icon { font-size: 28px; flex-shrink: 0; }
+    .quick-link .ql-title { font-size: 14px; font-weight: 600; }
+    .quick-link .ql-desc { font-size: 11px; color: var(--text2); margin-top: 2px; }
+
+    /* Section gap */
+    .section { margin-bottom: 20px; }
+    .section-title { font-size: 16px; font-weight: 700; margin-bottom: 12px; padding-left: 10px; border-left: 3px solid var(--accent); color: var(--text); }
+
+    /* Tab nav */
+    .tab-nav { display: flex; gap: 4px; margin-bottom: 16px; flex-wrap: wrap; }
+    .tab-btn { padding: 8px 16px; border: 1px solid var(--border); background: transparent; color: var(--text2); border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; transition: 0.2s; }
+    .tab-btn:hover { border-color: var(--accent2); color: var(--text); }
+    .tab-btn.active { background: var(--accent2); color: #fff; border-color: var(--accent2); }
+
+    /* Loading */
+    .loading { text-align: center; padding: 60px 20px; color: var(--text2); }
+    .loading .spin { display: inline-block; width: 40px; height: 40px; border: 3px solid var(--bg4); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 16px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Error banner */
+    .error-banner { background: rgba(255,82,82,0.1); border: 1px solid var(--red); border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; color: var(--red); font-size: 13px; display: flex; align-items: center; gap: 8px; }
+
+    /* Toast */
+    .toast-bar { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); background: var(--accent2); color: #fff; padding: 10px 24px; border-radius: 8px; font-size: 13px; font-weight: 600; box-shadow: 0 4px 20px rgba(0,0,0,0.4); z-index: 9999; transition: 0.3s; }
+
+    /* Memory detail modal */
+    .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); z-index: 10000; display: flex; justify-content: center; align-items: center; }
+    .modal-panel { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 24px; max-width: 700px; width: 90%; max-height: 80vh; overflow-y: auto; }
+    .modal-panel h3 { color: var(--accent); margin-bottom: 16px; }
+    .modal-close { float: right; background: none; border: none; color: var(--text2); font-size: 20px; cursor: pointer; }
+    .modal-close:hover { color: var(--red); }
+
+    /* Scrollable card */
+    .scroll-inner { max-height: 360px; overflow-y: auto; }
+    .scroll-inner-lg { max-height: 500px; overflow-y: auto; }
+
+    /* API row coloring */
+    .api-row-active { background: rgba(0,230,118,0.06) !important; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <!-- Loading -->
+    <div class="loading" v-if="loading">
+      <div class="spin"></div>
+      <div>正在加载 NekoAI 数据...</div>
+    </div>
+
+    <div class="dashboard" v-else>
+      <!-- Header -->
+      <div class="dash-header">
+        <div class="dash-title">
+          <span class="logo">&#128049;</span>
+          <span>NekoAI 统一控制面板
+            <span class="sub">v1.0 &middot; {{ runtime.nickName || 'Neko' }} &middot; 只读监控</span>
+          </span>
+        </div>
+        <div class="header-actions">
+          <span class="header-time">{{ currentTime }}</span>
+          <button class="btn btn-ghost btn-sm" @click="refreshAll">&#8635; 刷新</button>
+        </div>
+      </div>
+
+      <!-- Error banner -->
+      <div class="error-banner" v-for="err in errors" :key="err">&#9888; {{ err }}</div>
+
+      <!-- Quick Stats -->
+      <div class="section">
+        <div class="grid grid-4">
+          <div class="card stat-card">
+            <div class="stat-value accent">{{ apiList.length }}</div>
+            <div class="stat-label">API 节点总数</div>
+          </div>
+          <div class="card stat-card">
+            <div class="stat-value green">{{ runtime.activeApiIndex ?? '-' }}</div>
+            <div class="stat-label">当前活跃节点 #</div>
+          </div>
+          <div class="card stat-card">
+            <div class="stat-value purple">{{ memoryStats.totalGroups + memoryStats.totalPrivate }}</div>
+            <div class="stat-label">记忆存储会话数</div>
+          </div>
+          <div class="card stat-card">
+            <div class="stat-value orange">{{ memoryStats.totalMessages }}</div>
+            <div class="stat-label">记忆总消息条数</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab Navigation -->
+      <div class="tab-nav">
+        <button class="tab-btn" :class="{active:tab==='overview'}" @click="tab='overview'">&#127968; 概览</button>
+        <button class="tab-btn" :class="{active:tab==='api'}" @click="tab='api'">&#128225; API 节点</button>
+        <button class="tab-btn" :class="{active:tab==='memory'}" @click="tab='memory'">&#129504; 长期记忆</button>
+        <button class="tab-btn" :class="{active:tab==='personality'}" @click="tab='personality'">&#127917; 人格系统</button>
+        <button class="tab-btn" :class="{active:tab==='config'}" @click="tab='config'">&#9881; 运行配置</button>
+        <button class="tab-btn" :class="{active:tab==='tools'}" @click="tab='tools'">&#128295; 工具入口</button>
+      </div>
+
+      <!-- TAB: Overview -->
+      <div v-show="tab==='overview'">
+        <!-- Status Overview Grid -->
+        <div class="section">
+          <div class="section-title">系统状态总览</div>
+          <div class="grid grid-2">
+            <!-- Left: Core Status -->
+            <div class="card">
+              <div class="card-title"><span class="icon">&#9889;</span> 核心状态</div>
+              <div class="cfg-row">
+                <span class="cfg-key">机器人昵称</span>
+                <span class="cfg-val">{{ runtime.nickName || '-' }}</span>
+              </div>
+              <div class="cfg-row">
+                <span class="cfg-key">当前 API 节点</span>
+                <span class="cfg-val">#{{ runtime.activeApiIndex }} &middot; {{ activeApiName }}</span>
+              </div>
+              <div class="cfg-row">
+                <span class="cfg-key">群聊人格</span>
+                <span class="cfg-val">#{{ runtime.activeGroupPersonalityIndex }} &middot; {{ activeGroupPersona }}</span>
+              </div>
+              <div class="cfg-row">
+                <span class="cfg-key">私聊人格</span>
+                <span class="cfg-val">#{{ runtime.activePrivatePersonalityIndex }} &middot; {{ activePrivatePersona }}</span>
+              </div>
+              <div class="cfg-row">
+                <span class="cfg-key">智能路由</span>
+                <span class="cfg-val" :class="runtime.smartRouter?.enabled?'bool-on':'bool-off'">{{ runtime.smartRouter?.enabled ? '已开启 ('+runtime.smartRouter.mode+')' : '关闭' }}</span>
+              </div>
+              <div class="cfg-row">
+                <span class="cfg-key">记忆摘要压缩</span>
+                <span class="cfg-val" :class="runtime.memorySummary?.enabled?'bool-on':'bool-off'">{{ runtime.memorySummary?.enabled ? '已开启 (阈值 '+runtime.memorySummary.threshold+')' : '关闭' }}</span>
+              </div>
+              <div class="cfg-row">
+                <span class="cfg-key">表情包</span>
+                <span class="cfg-val" :class="runtime.enableMemes?'bool-on':'bool-off'">{{ runtime.enableMemes ? '已开启 (概率 '+(runtime.memeProb*100)+'%)' : '关闭' }}</span>
+              </div>
+              <div class="cfg-row">
+                <span class="cfg-key">话痨模式</span>
+                <span class="cfg-val">概率 {{ (runtime.randomReply*100).toFixed(0) }}% / 每 {{ runtime.messagesLength }} 条检测</span>
+              </div>
+            </div>
+
+            <!-- Right: Groups & Users -->
+            <div class="card">
+              <div class="card-title"><span class="icon">&#128101;</span> 用户与群组</div>
+              <div class="cfg-row">
+                <span class="cfg-key">监听群组</span>
+                <span class="cfg-val">{{ (runtime.groups||[]).length }} 个群</span>
+              </div>
+              <div v-for="g in (runtime.groups||[])" :key="g" class="cfg-row" style="padding-left:16px;">
+                <span class="cfg-key" style="font-size:12px;">&#128172; 群 {{ g }}</span>
+                <span class="cfg-val" style="font-size:11px;">
+                  <span class="tag tag-blue" v-if="runtime.groupLimits && runtime.groupLimits[g]">限流 {{ runtime.groupLimits[g] }}次/12h</span>
+                  <span class="tag tag-purple" v-if="runtime.groupPersonalityMap && runtime.groupPersonalityMap[g]">人格#{{ runtime.groupPersonalityMap[g] }}</span>
+                  <span class="tag tag-orange" v-if="runtime.groupApiMap && runtime.groupApiMap[g]">API#{{ runtime.groupApiMap[g] }}</span>
+                </span>
+              </div>
+              <div class="cfg-row">
+                <span class="cfg-key">主人 QQ</span>
+                <span class="cfg-val mono">{{ (runtime.masterQQ||[]).join(', ') }}</span>
+              </div>
+              <div class="cfg-row">
+                <span class="cfg-key">私聊白名单</span>
+                <span class="cfg-val">{{ (runtime.allowPrivateTalkingUsers||[]).length }} 人</span>
+              </div>
+              <div class="cfg-row">
+                <span class="cfg-key">用户黑名单</span>
+                <span class="cfg-val">{{ (runtime.userBlacklist||[]).length }} 人</span>
+              </div>
+              <div class="cfg-row">
+                <span class="cfg-key">API 并发上限</span>
+                <span class="cfg-val">{{ runtime.requestQueue?.maxConcurrent || 3 }}</span>
+              </div>
+              <div class="cfg-row">
+                <span class="cfg-key">当前用量周期</span>
+                <span class="cfg-val mono">{{ usageData.periodId || '-' }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- API Type Distribution -->
+        <div class="section">
+          <div class="section-title">API 节点概况</div>
+          <div class="grid grid-3">
+            <div class="card stat-card" v-for="(count, type) in apiTypeCounts" :key="type">
+              <div class="stat-value" :class="type==='openai'?'accent':type==='gemini'?'green':'orange'">{{ count }}</div>
+              <div class="stat-label">{{ type }} 节点</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Memory Quick View -->
+        <div class="section">
+          <div class="section-title">长期记忆速览</div>
+          <div class="grid grid-2">
+            <div class="card">
+              <div class="card-title"><span class="icon">&#128172;</span> 群聊记忆 ({{ memoryStats.totalGroups }} 个群)</div>
+              <div class="scroll-inner">
+                <div class="mem-bar-wrap" v-for="m in memoryStats.groupDetails" :key="m.id">
+                  <div class="mem-bar-label">
+                    <span class="name">群 {{ m.id }}</span>
+                    <span class="count">{{ m.count }} 条</span>
+                  </div>
+                  <div class="mem-bar">
+                    <div class="mem-bar-fill" :class="m.count<20?'low':m.count<50?'mid':'high'" :style="{width: Math.min(m.count/memoryStats.maxCount*100, 100)+'%'}"></div>
+                  </div>
+                </div>
+                <div v-if="memoryStats.groupDetails.length===0" style="color:var(--text3);font-size:12px;text-align:center;padding:20px;">暂无群聊记忆数据</div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-title"><span class="icon">&#128100;</span> 私聊记忆 ({{ memoryStats.totalPrivate }} 个用户)</div>
+              <div class="scroll-inner">
+                <div class="mem-bar-wrap" v-for="m in memoryStats.privateDetails" :key="m.id">
+                  <div class="mem-bar-label">
+                    <span class="name">用户 {{ m.id }}</span>
+                    <span class="count">{{ m.count }} 条</span>
+                  </div>
+                  <div class="mem-bar">
+                    <div class="mem-bar-fill" :class="m.count<20?'low':m.count<50?'mid':'high'" :style="{width: Math.min(m.count/memoryStats.maxCount*100, 100)+'%'}"></div>
+                  </div>
+                </div>
+                <div v-if="memoryStats.privateDetails.length===0" style="color:var(--text3);font-size:12px;text-align:center;padding:20px;">暂无私聊记忆数据</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB: API Nodes -->
+      <div v-show="tab==='api'">
+        <div class="section">
+          <div class="section-title">API 节点列表 ({{ apiList.length }} 个)</div>
+          <div class="card">
+            <div style="margin-bottom:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+              <input type="text" v-model="apiSearch" placeholder="&#128269; 搜索模型名 / 备注 / 类型..." style="flex:1;min-width:200px;padding:8px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);outline:none;font-size:13px;">
+              <span style="font-size:12px;color:var(--text2);">匹配 {{ filteredApiList.length }} / {{ apiList.length }}</span>
+            </div>
+            <div class="scroll-inner-lg">
+              <table class="tbl">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>类型</th>
+                    <th>模型名称</th>
+                    <th>API URL</th>
+                    <th>Key</th>
+                    <th>备注</th>
+                    <th>状态</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(api, i) in filteredApiList" :key="i" :class="{'api-row-active': api._origIndex === runtime.activeApiIndex}">
+                    <td><span class="tag" :class="api._origIndex===runtime.activeApiIndex?'tag-green':'tag-blue'">{{ api._origIndex }}</span></td>
+                    <td><span class="tag" :class="api.aiType==='openai'?'tag-blue':api.aiType==='gemini'?'tag-green':'tag-orange'">{{ api.aiType }}</span></td>
+                    <td class="mono">{{ api.modelName || '-' }}</td>
+                    <td class="mono truncate" :title="api.apiUrl">{{ api.apiUrl }}</td>
+                    <td class="mono" style="color:var(--text3);">{{ maskKey(api.apiKey) }}</td>
+                    <td>{{ api.remark || '-' }}</td>
+                    <td>
+                      <span class="tag tag-green" v-if="api._origIndex===runtime.activeApiIndex">&#9989; 使用中</span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB: Memory -->
+      <div v-show="tab==='memory'">
+        <div class="section">
+          <div class="section-title">长期记忆存储系统</div>
+
+          <!-- Memory Overview Cards -->
+          <div class="grid grid-4" style="margin-bottom:16px;">
+            <div class="card stat-card">
+              <div class="stat-value accent">{{ memoryStats.totalGroups }}</div>
+              <div class="stat-label">群聊会话</div>
+            </div>
+            <div class="card stat-card">
+              <div class="stat-value purple">{{ memoryStats.totalPrivate }}</div>
+              <div class="stat-label">私聊会话</div>
+            </div>
+            <div class="card stat-card">
+              <div class="stat-value orange">{{ memoryStats.totalMessages }}</div>
+              <div class="stat-label">总消息条数</div>
+            </div>
+            <div class="card stat-card">
+              <div class="stat-value" :class="runtime.memorySummary?.enabled?'green':'pink'">{{ runtime.memorySummary?.enabled ? 'ON' : 'OFF' }}</div>
+              <div class="stat-label">自动摘要压缩</div>
+            </div>
+          </div>
+
+          <!-- Config Info -->
+          <div class="card" style="margin-bottom:16px;">
+            <div class="card-title"><span class="icon">&#9881;</span> 记忆系统配置</div>
+            <div class="grid grid-3" style="gap:0;">
+              <div class="cfg-row"><span class="cfg-key">群聊上下文上限</span><span class="cfg-val">{{ runtime.maxGroupMessages }} 条</span></div>
+              <div class="cfg-row"><span class="cfg-key">私聊上下文上限</span><span class="cfg-val">{{ runtime.singleMaxMessages }} 条</span></div>
+              <div class="cfg-row"><span class="cfg-key">摘要压缩阈值</span><span class="cfg-val">{{ runtime.memorySummary?.threshold || '-' }} 条</span></div>
+            </div>
+          </div>
+
+          <!-- Group Memories -->
+          <div class="grid grid-2">
+            <div class="card">
+              <div class="card-title"><span class="icon">&#128172;</span> 群聊记忆详情</div>
+              <div class="scroll-inner-lg">
+                <div v-if="memoryStats.groupDetails.length===0" style="color:var(--text3);text-align:center;padding:30px;font-size:13px;">暂无群聊记忆文件</div>
+                <div v-for="m in memoryStats.groupDetails" :key="m.id" class="mem-bar-wrap" style="cursor:pointer;" @click="viewMemory('group', m)">
+                  <div class="mem-bar-label">
+                    <span class="name">
+                      &#128172; 群 {{ m.id }}
+                      <span class="tag tag-green" style="margin-left:4px;" v-if="(runtime.groups||[]).includes(m.id)">活跃</span>
+                      <span class="tag tag-red" style="margin-left:4px;" v-if="m.count >= (runtime.maxGroupMessages||20)">已满</span>
+                    </span>
+                    <span class="count">{{ m.count }} 条 &middot; {{ formatSize(m.size) }}</span>
+                  </div>
+                  <div class="mem-bar">
+                    <div class="mem-bar-fill" :class="getBarClass(m.count, runtime.maxGroupMessages||20)" :style="{width: Math.min(m.count/(runtime.maxGroupMessages||20)*100, 100)+'%'}"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-title"><span class="icon">&#128100;</span> 私聊记忆详情</div>
+              <div class="scroll-inner-lg">
+                <div v-if="memoryStats.privateDetails.length===0" style="color:var(--text3);text-align:center;padding:30px;font-size:13px;">暂无私聊记忆文件</div>
+                <div v-for="m in memoryStats.privateDetails" :key="m.id" class="mem-bar-wrap" style="cursor:pointer;" @click="viewMemory('private', m)">
+                  <div class="mem-bar-label">
+                    <span class="name">
+                      &#128100; 用户 {{ m.id }}
+                      <span class="tag tag-purple" style="margin-left:4px;" v-if="(runtime.masterQQ||[]).includes(m.id)">主人</span>
+                      <span class="tag tag-red" style="margin-left:4px;" v-if="m.count >= (runtime.singleMaxMessages||40)">已满</span>
+                    </span>
+                    <span class="count">{{ m.count }} 条 &middot; {{ formatSize(m.size) }}</span>
+                  </div>
+                  <div class="mem-bar">
+                    <div class="mem-bar-fill" :class="getBarClass(m.count, runtime.singleMaxMessages||40)" :style="{width: Math.min(m.count/(runtime.singleMaxMessages||40)*100, 100)+'%'}"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Memory Detail Modal -->
+        <div class="modal-overlay" v-if="memoryModal" @click.self="memoryModal=null">
+          <div class="modal-panel">
+            <button class="modal-close" @click="memoryModal=null">&times;</button>
+            <h3>{{ memoryModal.type==='group'?'&#128172; 群':'&#128100; 用户' }} {{ memoryModal.id }} 的记忆内容</h3>
+            <div style="margin-bottom:12px;font-size:12px;color:var(--text2);">
+              共 {{ memoryModal.count }} 条消息 &middot; {{ formatSize(memoryModal.size) }}
+            </div>
+            <div class="scroll-inner-lg" style="max-height:60vh;">
+              <div v-if="memoryModal.messages && memoryModal.messages.length" v-for="(msg, i) in memoryModal.messages" :key="i"
+                   style="padding:6px 0;border-bottom:1px solid var(--border);font-size:12px;font-family:monospace;word-break:break-all;line-height:1.6;color:var(--text2);">
+                {{ typeof msg === 'string' ? msg : JSON.stringify(msg) }}
+              </div>
+              <div v-else style="color:var(--text3);text-align:center;padding:30px;">无法加载消息内容</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB: Personality -->
+      <div v-show="tab==='personality'">
+        <div class="section">
+          <div class="section-title">人格系统</div>
+          <div class="grid grid-2">
+            <div class="card">
+              <div class="card-title"><span class="icon">&#128172;</span> 群聊人格 ({{ groupPersonality.length }} 个)</div>
+              <div class="scroll-inner">
+                <div class="persona-card" v-for="(p, i) in groupPersonality" :key="'gp'+i"
+                     :class="{active: i===runtime.activeGroupPersonalityIndex}">
+                  <div class="persona-name">
+                    <span class="tag tag-blue">#{{ i }}</span>
+                    {{ p.remark || '未命名' }}
+                    <span class="tag tag-green" v-if="i===runtime.activeGroupPersonalityIndex">当前使用</span>
+                  </div>
+                  <div class="persona-desc">{{ (p.prompt||'').substring(0, 120) }}...</div>
+                </div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-title"><span class="icon">&#128100;</span> 私聊人格 ({{ privatePersonality.length }} 个)</div>
+              <div class="scroll-inner">
+                <div class="persona-card" v-for="(p, i) in privatePersonality" :key="'pp'+i"
+                     :class="{active: i===runtime.activePrivatePersonalityIndex}">
+                  <div class="persona-name">
+                    <span class="tag tag-purple">#{{ i }}</span>
+                    {{ p.remark || '未命名' }}
+                    <span class="tag tag-green" v-if="i===runtime.activePrivatePersonalityIndex">当前使用</span>
+                  </div>
+                  <div class="persona-desc">{{ (p.prompt||'').substring(0, 120) }}...</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB: Config -->
+      <div v-show="tab==='config'">
+        <div class="section">
+          <div class="section-title">运行配置详情</div>
+          <div class="grid grid-2">
+            <div class="card">
+              <div class="card-title"><span class="icon">&#9889;</span> 核心参数</div>
+              <div class="scroll-inner">
+                <div class="cfg-row" v-for="(val, key) in coreConfigItems" :key="key">
+                  <span class="cfg-key">{{ key }}</span>
+                  <span class="cfg-val" :class="typeof val==='boolean'?(val?'bool-on':'bool-off'):''">{{ formatCfgVal(val) }}</span>
+                </div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-title"><span class="icon">&#128295;</span> 高级参数</div>
+              <div class="scroll-inner">
+                <div class="cfg-row" v-for="(val, key) in advancedConfigItems" :key="key">
+                  <span class="cfg-key">{{ key }}</span>
+                  <span class="cfg-val" :class="typeof val==='boolean'?(val?'bool-on':'bool-off'):''">{{ formatCfgVal(val) }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- API Params -->
+        <div class="section">
+          <div class="grid grid-3">
+            <div class="card">
+              <div class="card-title"><span class="icon">&#127919;</span> API 请求参数</div>
+              <div class="cfg-row" v-for="(val, key) in (runtime.apiParams||{})" :key="key">
+                <span class="cfg-key">{{ key }}</span>
+                <span class="cfg-val">{{ val }}</span>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-title"><span class="icon">&#128640;</span> 智能路由</div>
+              <div class="cfg-row" v-for="(val, key) in (runtime.smartRouter||{})" :key="key">
+                <span class="cfg-key">{{ key }}</span>
+                <span class="cfg-val" :class="typeof val==='boolean'?(val?'bool-on':'bool-off'):''">{{ formatCfgVal(val) }}</span>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-title"><span class="icon">&#128451;</span> 记忆摘要</div>
+              <div class="cfg-row" v-for="(val, key) in (runtime.memorySummary||{})" :key="key">
+                <span class="cfg-key">{{ key }}</span>
+                <span class="cfg-val" :class="typeof val==='boolean'?(val?'bool-on':'bool-off'):''">{{ formatCfgVal(val) }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB: Tools -->
+      <div v-show="tab==='tools'">
+        <div class="section">
+          <div class="section-title">管理工具入口</div>
+          <div class="grid grid-3">
+            <a class="quick-link" href="./api_manager.html" target="_blank">
+              <span class="ql-icon">&#128225;</span>
+              <div>
+                <div class="ql-title">API 节点管理器</div>
+                <div class="ql-desc">添加/编辑/删除/测试 API 节点，拖拽排序，批量操作</div>
+              </div>
+            </a>
+            <a class="quick-link" href="./config_editor.html" target="_blank">
+              <span class="ql-icon">&#9881;</span>
+              <div>
+                <div class="ql-title">配置编辑器</div>
+                <div class="ql-desc">可视化编辑运行配置和 AI 人格设定</div>
+              </div>
+            </a>
+            <a class="quick-link" href="./history_viewer.html" target="_blank">
+              <span class="ql-icon">&#128214;</span>
+              <div>
+                <div class="ql-title">聊天记录查看器</div>
+                <div class="ql-desc">浏览和搜索机器人的聊天历史日志</div>
+              </div>
+            </a>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">配置文件结构</div>
+          <div class="card">
+            <table class="tbl">
+              <thead><tr><th>文件</th><th>用途</th><th>状态</th></tr></thead>
+              <tbody>
+                <tr v-for="f in configFiles" :key="f.name">
+                  <td class="mono">{{ f.name }}</td>
+                  <td>{{ f.desc }}</td>
+                  <td><span class="tag" :class="f.loaded?'tag-green':'tag-red'">{{ f.loaded ? '已加载' : '未找到' }}</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">已注册指令 ({{ commandList.length }} 个)</div>
+          <div class="card">
+            <div style="display:flex;flex-wrap:wrap;gap:6px;max-height:300px;overflow-y:auto;">
+              <span class="tag tag-blue" v-for="cmd in commandList" :key="cmd" style="font-size:12px;">{{ cmd }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Toast -->
+    <div class="toast-bar" v-if="toast">{{ toast }}</div>
+  </div>
+
+  <script>
+    const { createApp, ref, reactive, computed, onMounted, onUnmounted } = Vue;
+
+    createApp({
+      setup() {
+        const loading = ref(true);
+        const tab = ref('overview');
+        const errors = ref([]);
+        const toast = ref('');
+        const currentTime = ref('');
+        const apiSearch = ref('');
+
+        // Data stores
+        const runtime = ref({});
+        const apiList = ref([]);
+        const groupPersonality = ref([]);
+        const privatePersonality = ref([]);
+        const commandList = ref([]);
+        const usageData = ref({});
+        const memoryStats = ref({ totalGroups: 0, totalPrivate: 0, totalMessages: 0, maxCount: 1, groupDetails: [], privateDetails: [] });
+        const memoryModal = ref(null);
+
+        // Helpers
+        const showToast = (msg) => { toast.value = msg; setTimeout(() => toast.value = '', 2500); };
+        const maskKey = (key) => { if (!key) return '-'; if (key.length <= 8) return '****'; return key.substring(0, 4) + '...' + key.substring(key.length - 4); };
+        const formatSize = (bytes) => { if (!bytes) return '0 B'; if (bytes < 1024) return bytes + ' B'; if (bytes < 1048576) return (bytes/1024).toFixed(1) + ' KB'; return (bytes/1048576).toFixed(1) + ' MB'; };
+        const formatCfgVal = (val) => { if (val === true) return 'ON'; if (val === false) return 'OFF'; if (Array.isArray(val)) return val.length ? val.join(', ') : '(空)'; if (typeof val === 'object' && val !== null) return JSON.stringify(val); return String(val); };
+        const getBarClass = (count, max) => { const ratio = count / max; if (ratio < 0.5) return 'low'; if (ratio < 0.85) return 'mid'; return 'high'; };
+
+        // Fetch JSON helper
+        const fetchJSON = async (url) => {
+          try {
+            const resp = await fetch(url, { cache: 'no-cache' });
+            if (!resp.ok) throw new Error(resp.status);
+            return await resp.json();
+          } catch (e) { return null; }
+        };
+
+        // Fetch memory files list via attempted fetch
+        const fetchMemoryData = async () => {
+          const stats = { totalGroups: 0, totalPrivate: 0, totalMessages: 0, maxCount: 1, groupDetails: [], privateDetails: [] };
+
+          // Try to load group memory files by probing known group IDs from runtime config
+          const groups = runtime.value.groups || [];
+          // Also try to discover files - we'll probe common IDs
+          const groupIds = [...new Set([...groups])];
+
+          for (const gid of groupIds) {
+            try {
+              const resp = await fetch(`./memory/group/${gid}.json`, { cache: 'no-cache' });
+              if (resp.ok) {
+                const text = await resp.text();
+                const data = JSON.parse(text);
+                const count = Array.isArray(data) ? data.length : 0;
+                stats.groupDetails.push({ id: gid, count, size: text.length, data });
+                stats.totalMessages += count;
+              }
+            } catch (e) { /* skip */ }
+          }
+          stats.totalGroups = stats.groupDetails.length;
+
+          // Private: probe masterQQ and allowPrivateTalkingUsers
+          const privateIds = [...new Set([...(runtime.value.masterQQ || []), ...(runtime.value.allowPrivateTalkingUsers || [])])];
+          for (const uid of privateIds) {
+            try {
+              const resp = await fetch(`./memory/private/${uid}.json`, { cache: 'no-cache' });
+              if (resp.ok) {
+                const text = await resp.text();
+                const data = JSON.parse(text);
+                const count = Array.isArray(data) ? data.length : 0;
+                stats.privateDetails.push({ id: uid, count, size: text.length, data });
+                stats.totalMessages += count;
+              }
+            } catch (e) { /* skip */ }
+          }
+          stats.totalPrivate = stats.privateDetails.length;
+
+          // Sort by count descending
+          stats.groupDetails.sort((a, b) => b.count - a.count);
+          stats.privateDetails.sort((a, b) => b.count - a.count);
+
+          // Max count for bar scaling
+          const allCounts = [...stats.groupDetails.map(d => d.count), ...stats.privateDetails.map(d => d.count)];
+          stats.maxCount = Math.max(1, ...allCounts);
+
+          memoryStats.value = stats;
+        };
+
+        // View memory detail
+        const viewMemory = (type, m) => {
+          memoryModal.value = {
+            type,
+            id: m.id,
+            count: m.count,
+            size: m.size,
+            messages: m.data || []
+          };
+        };
+
+        // Active names
+        const activeApiName = computed(() => {
+          const idx = runtime.value.activeApiIndex;
+          if (idx >= 0 && idx < apiList.value.length) {
+            const a = apiList.value[idx];
+            return a.modelName || a.remark || '未命名';
+          }
+          return '-';
+        });
+        const activeGroupPersona = computed(() => {
+          const idx = runtime.value.activeGroupPersonalityIndex;
+          if (idx >= 0 && idx < groupPersonality.value.length) return groupPersonality.value[idx].remark || '未命名';
+          return '-';
+        });
+        const activePrivatePersona = computed(() => {
+          const idx = runtime.value.activePrivatePersonalityIndex;
+          if (idx >= 0 && idx < privatePersonality.value.length) return privatePersonality.value[idx].remark || '未命名';
+          return '-';
+        });
+
+        // API type counts
+        const apiTypeCounts = computed(() => {
+          const c = {};
+          apiList.value.forEach(a => { const t = a.aiType || 'unknown'; c[t] = (c[t] || 0) + 1; });
+          return c;
+        });
+
+        // Filtered API list
+        const filteredApiList = computed(() => {
+          const q = apiSearch.value.trim().toLowerCase();
+          const list = apiList.value.map((a, i) => ({ ...a, _origIndex: i }));
+          if (!q) return list;
+          return list.filter(a =>
+            (a.modelName || '').toLowerCase().includes(q) ||
+            (a.remark || '').toLowerCase().includes(q) ||
+            (a.aiType || '').toLowerCase().includes(q) ||
+            (a.apiUrl || '').toLowerCase().includes(q)
+          );
+        });
+
+        // Config items split
+        const coreKeys = ['nickName', 'activeApiIndex', 'activeGroupPersonalityIndex', 'activePrivatePersonalityIndex',
+                          'maxGroupMessages', 'singleMaxMessages', 'enableMemes', 'memesPath', 'memeProb',
+                          'randomReply', 'messagesLength', 'sleepTime', 'eachLetterCost',
+                          'forwardMaxLength', 'forwardMaxSegments', 'forwardStrategy', 'forwardModelList',
+                          'singleAskSleep', 'singleTalkWaiting', 'groupMentionWait', 'privateRefuse'];
+        const coreConfigItems = computed(() => {
+          const items = {};
+          coreKeys.forEach(k => { if (runtime.value[k] !== undefined) items[k] = runtime.value[k]; });
+          return items;
+        });
+        const advancedConfigItems = computed(() => {
+          const skip = new Set([...coreKeys, '_comments', 'masterQQ', 'groups', 'allowPrivateTalkingUsers',
+                                'userBlacklist', 'smartRouter', 'apiParams', 'memorySummary', 'requestQueue',
+                                'groupLimits', 'groupPersonalityMap', 'groupApiMap']);
+          const items = {};
+          for (const k in runtime.value) {
+            if (!skip.has(k)) items[k] = runtime.value[k];
+          }
+          return items;
+        });
+
+        // Config files status
+        const configFiles = ref([]);
+
+        // Load everything
+        const refreshAll = async () => {
+          errors.value = [];
+          const results = {};
+          const files = [
+            { key: 'runtime', url: './runtime_config.json', desc: '运行时配置' },
+            { key: 'api', url: './api_config.json', desc: 'API 节点配置' },
+            { key: 'groupP', url: './group_personality.json', desc: '群聊人格' },
+            { key: 'privateP', url: './private_personality.json', desc: '私聊人格' },
+            { key: 'commands', url: './commands.json', desc: '指令避让列表' },
+            { key: 'usage', url: './group_usage_counts.json', desc: '群聊用量计数' }
+          ];
+
+          const loadPromises = files.map(async (f) => {
+            const data = await fetchJSON(f.url);
+            results[f.key] = { data, loaded: data !== null, name: f.url.replace('./', ''), desc: f.desc };
+          });
+          await Promise.all(loadPromises);
+
+          // Populate
+          if (results.runtime.data) runtime.value = results.runtime.data;
+          else errors.value.push('无法加载 runtime_config.json');
+
+          if (results.api.data) apiList.value = results.api.data;
+          else errors.value.push('无法加载 api_config.json');
+
+          if (results.groupP.data) groupPersonality.value = results.groupP.data;
+          if (results.privateP.data) privatePersonality.value = results.privateP.data;
+          if (results.commands.data) commandList.value = results.commands.data;
+          if (results.usage.data) usageData.value = results.usage.data;
+
+          configFiles.value = files.map(f => ({
+            name: f.url.replace('./', ''),
+            desc: f.desc,
+            loaded: results[f.key].loaded
+          }));
+
+          // Load memory data
+          await fetchMemoryData();
+
+          loading.value = false;
+          showToast('数据加载完成');
+        };
+
+        // Clock
+        let clockTimer = null;
+        const updateClock = () => {
+          const d = new Date();
+          currentTime.value = d.toLocaleString('zh-CN', { hour12: false });
+        };
+
+        onMounted(() => {
+          updateClock();
+          clockTimer = setInterval(updateClock, 1000);
+          refreshAll();
+        });
+        onUnmounted(() => { if (clockTimer) clearInterval(clockTimer); });
+
+        return {
+          loading, tab, errors, toast, currentTime, apiSearch,
+          runtime, apiList, groupPersonality, privatePersonality, commandList, usageData, memoryStats, memoryModal,
+          activeApiName, activeGroupPersona, activePrivatePersona,
+          apiTypeCounts, filteredApiList, coreConfigItems, advancedConfigItems, configFiles,
+          maskKey, formatSize, formatCfgVal, getBarClass, viewMemory, refreshAll, showToast
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>
