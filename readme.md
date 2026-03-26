@@ -183,7 +183,7 @@ plugins:
 * **`groupLimits`**: 记录各个群聊的 12 小时响应次数上限（如 `{"111111111": 100}`）。
 * **`contextAutoForgetMs`**: 上下文闲置自动清空时间（毫秒），`0` 为关闭。默认 10 分钟。
 * **`apiTimeoutMs`**: 调用下游模型的超时时间（毫秒）。
-* **`sendProcessingNotice` / `processingNoticeText` / `processingNoticeDelayMs`**: 控制收到请求后是否先发“处理中”提示、提示文案以及延迟多久再发。提示消息会在发送后 30 秒自动撤回（需平台支持删除消息）。
+* **`sendProcessingNotice` / `processingNoticeText` / `processingNoticeDelayMs`**: 控制收到请求后是否先发“处理中”提示、提示文案以及延迟多久再发。提示消息会在发送后 30 秒自动撤回（需平台支持删除消息），如需关闭可将 `sendProcessingNotice` 设为 `false`。
 * **`sendFailureNotice` / `failureNoticeDetailMode` / `generationFailedText`**: 控制失败时是否在聊天里回报错误、要不要带节点与错误详情，以及统一的失败重试文案。
 * **`forwardStrategy`**: 消息合并策略开关，可选 `auto`（触发阈值则合并）、`on`（强制合并）、`off`（禁用合并）。
 * **`uiStyle`**: 图片卡片主题编号。`1` = 极光玻璃，`2` = 深色终端，`3` = 暖纸卡片。
