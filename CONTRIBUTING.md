@@ -206,7 +206,7 @@ if (aiType === 'anthropic') {
 请求反馈相关字段的现有做法可参考：
 
 * `apiTimeoutMs`：下游模型调用超时
-* `sendProcessingNotice` / `processingNoticeText` / `processingNoticeDelayMs`：处理中提示
+* `sendProcessingNotice` / `processingNoticeText` / `processingNoticeDelayMs`：处理中提示（发送后 30 秒自动撤回，需平台支持删除消息）
 * `sendFailureNotice` / `failureNoticeDetailMode` / `generationFailedText`：失败回报和错误详情粒度
 
 群状态类指令的现有做法可参考：
