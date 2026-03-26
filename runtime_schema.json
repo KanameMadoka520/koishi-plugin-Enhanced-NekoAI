@@ -287,7 +287,7 @@
       "title": "处理中提示文案",
       "type": "string",
       "description": "请求已受理时发送的提示文本。",
-      "default": "已接收到请求，请耐心等待处理。",
+      "default": "已接收到请求，请耐心等待处理。不要频繁请求，2分钟内未完成再重试",
       "placeholder": "已接收到请求，请耐心等待处理。"
     },
     "processingNoticeDelayMs": {
