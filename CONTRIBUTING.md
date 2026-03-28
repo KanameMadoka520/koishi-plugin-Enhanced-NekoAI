@@ -24,7 +24,7 @@ lib/
 ├── logger.js       ← 日志工具（带前缀和颜色的分级日志）
 ├── config.js       ← 配置加载、保存、默认值模板与 Koishi Schema 定义
 ├── utils.js        ← 通用工具函数（权限检查、群友名单、周期计算等）
-├── parser.js       ← 消息内容解析（Base64 图片提取、外部链接嗅探、引用解析）
+├── parser.js       ← 消息内容解析（Base64 图片提取、外部链接嗅探、回复引用兼容解析）
 ├── sender.js       ← 消息发送（拟人分段、合并转发、Fallback 降级、表情包）
 ├── api.js          ← AI API 调用（三协议适配、智能路由、故障转移）
 ├── queue.js        ← 请求队列（FIFO 并发控制）
@@ -43,6 +43,7 @@ lib/
 * **新增指令请在 `commands.js`** 中添加，新增消息处理逻辑请在 `listener.js` 中添加。
 * **如果模块要访问可选服务（例如 `ctx.puppeteer`）**，请在入口导出的 `inject` 中显式声明为 `optional`，避免 Koishi 输出属性注册警告。
 * **避免循环依赖**：如果模块 A 和模块 B 互相需要，请在函数内部使用延迟 `require()`（不要在文件顶部 require）。例如 `commands.js` 中对 `api.js` 的引用就是在函数体内延迟 require 的。
+* **群聊 @ 相关逻辑优先看 `listener.js` + `parser.js`**：`@专注回答模式`、回复引用提取、引用图片并入请求、引用来源日志都集中在这两处，不要只改提示词而忽略运行时注入链路。
 
 ### 1. 全量脱离 YAML 的 JSON 配置树
 
@@ -68,6 +69,10 @@ lib/
 1. 修改 `state.runtimeConfig` / `defaultRuntimeConfig`
 2. 在 `commands.js` 中添加对应的聊天指令（如需要）
 3. **同步更新 `runtime_schema.json`**，把字段说明、约束、枚举值和（如有）废弃信息写进去
+4. **同步更新 GUI Manager**：
+   - `src/lib/types.ts` 的 `RuntimeConfig`
+   - `src/pages/ConfigEditor.tsx` 的 `defaults` / `normalizeRuntimeConfig()`
+   - 确认字段已经在对应章节真实渲染出来，而不是只存在于 schema 和类型里
 
 否则 GUI Manager、自检和迁移提醒会和插件真实行为再次脱节。
 
