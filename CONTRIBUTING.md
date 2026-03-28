@@ -76,6 +76,14 @@ lib/
 
 否则 GUI Manager、自检和迁移提醒会和插件真实行为再次脱节。
 
+请求队列相关字段的现有做法可参考：
+
+* `requestQueue.maxConcurrent`：控制同时进行的 API 请求数量
+* `requestQueue.maxPending`：控制最多允许排队等待的请求数量，`0` 表示不限制
+* `requestQueue.overflowText`：队列已满时发给用户的提示文案，支持 `{ahead}` / `{running}` / `{pending}` / `{maxConcurrent}` / `{maxPending}` 占位符
+
+收到请求后的动态状态提示逻辑目前位于 `listener.js`，队列容量与溢出保护逻辑位于 `queue.js`，如果你修改其中一侧，记得同步检查另一侧的提示文本和日志是否仍然一致。
+
 ### 2. 多模型原生协议适配器
 
 在 `lib/api.js` 的 `getAiReply` 方法中，我们针对不同的模型（OpenAI 兼容格式、Anthropic 原生格式、Gemini 原生格式）进行了**差异化发包**。

@@ -61,9 +61,9 @@
     {
       "id": "queue",
       "title": "请求队列",
-      "summary": "当前插件实际消费的是最大并发数。",
+      "summary": "当前插件支持最大并发数、最大排队长度与队列满提示文案。",
       "mode": "advanced",
-      "fields": ["requestQueue.maxConcurrent"]
+      "fields": ["requestQueue.maxConcurrent", "requestQueue.maxPending", "requestQueue.overflowText"]
     },
     {
       "id": "mapping",
@@ -423,6 +423,20 @@
       "description": "请求队列允许同时进行的 API 请求数量。",
       "default": 3,
       "minimum": 1
+    },
+    "requestQueue.maxPending": {
+      "title": "最大排队数",
+      "type": "number",
+      "description": "允许等待中的请求数量上限，0 表示不限制。超过后会直接拒绝新请求。",
+      "default": 10,
+      "minimum": 0
+    },
+    "requestQueue.overflowText": {
+      "title": "队列已满提示文案",
+      "type": "string",
+      "description": "请求队列达到上限时发送给用户的提示文本。支持占位符 {ahead} {running} {pending} {maxConcurrent} {maxPending}。",
+      "default": "NEKOAI请求队列已达上限，当前前方有{ahead}个请求未完成。请稍后重试。",
+      "placeholder": "NEKOAI请求队列已达上限，当前前方有{ahead}个请求未完成。请稍后重试。"
     },
     "groupPersonalityMap": {
       "title": "群人格映射 (群号 → 人格索引)",
