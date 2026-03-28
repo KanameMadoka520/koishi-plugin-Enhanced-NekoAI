@@ -88,7 +88,7 @@
   "contextAutoForgetMs": 600000,
   "apiTimeoutMs": 120000,
   "sendProcessingNotice": true,
-  "processingNoticeText": "已接收到请求，请耐心等待处理。不要频繁请求，2分钟内未完成再重试。(本消息30秒后撤回)",
+  "processingNoticeText": "已接收到请求，请耐心等待处理。请不要在短时间内重复发送请求。2分钟内未完成再重试。(本消息30秒后撤回)",
   "processingNoticeDelayMs": 0,
   "sendFailureNotice": true,
   "failureNoticeDetailMode": "full",
