@@ -84,7 +84,7 @@
       "title": "转发设置",
       "summary": "长文本转发、模型列表输出和图片卡片风格。",
       "mode": "both",
-      "fields": ["forwardStrategy", "forwardMaxLength", "forwardMaxSegments", "groupMentionWait", "forwardModelList", "modelListImageEnabled", "uiStyle"]
+      "fields": ["forwardStrategy", "forwardMaxLength", "forwardMaxSegments", "groupMentionWait", "groupMentionFocusMode", "forwardModelList", "modelListImageEnabled", "uiStyle"]
     }
   ],
   "allowAdditionalPaths": ["apiParams.*"],
@@ -509,6 +509,12 @@
       "description": "群聊 @ 合并等待时间(ms)，0 表示不等待立即响应。",
       "default": 0,
       "minimum": 0
+    },
+    "groupMentionFocusMode": {
+      "title": "@专注回答模式",
+      "type": "boolean",
+      "description": "群聊被 @ 时，强制把本轮 @ 消息视为主问题，上下文和引用只作参考；除非明确要求总结，否则禁止自发总结整段群聊。",
+      "default": true
     },
     "forwardModelList": {
       "title": "模型列表文本合并",
