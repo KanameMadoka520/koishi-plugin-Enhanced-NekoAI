@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "plugin": "nekoai",
   "sections": [
     {
@@ -19,9 +19,16 @@
     {
       "id": "groups",
       "title": "群聊与用户",
-      "summary": "监听群组、私聊白名单、用户黑名单、图像权限模式与群限流。",
+      "summary": "监听群组、聊天/图像黑白名单、私聊白名单与群总额度。",
       "mode": "both",
-      "fields": ["groups", "allowPrivateTalkingUsers", "userBlacklist", "imageAccess.mode", "imageAccess.whitelistUsers", "groupLimits"]
+      "fields": ["groups", "allowPrivateTalkingUsers", "userBlacklist", "chatAccess.mode", "chatAccess.whitelistUsers", "imageAccess.mode", "imageAccess.whitelistUsers", "groupLimits"]
+    },
+    {
+      "id": "quota",
+      "title": "额度规则",
+      "summary": "聊天与图像的默认额度、单独用户额度规则。",
+      "mode": "both",
+      "fields": ["chatQuota.enabled", "chatQuota.defaultLimit", "chatQuota.userLimits", "imageQuota.enabled", "imageQuota.defaultGenerateLimit", "imageQuota.defaultEditLimit"]
     },
     {
       "id": "messages",
@@ -87,7 +94,7 @@
       "fields": ["forwardStrategy", "forwardMaxLength", "forwardMaxSegments", "groupMentionWait", "groupMentionFocusMode", "forwardModelList", "modelListImageEnabled", "uiStyle"]
     }
   ],
-  "allowAdditionalPaths": ["apiParams.*", "imageQuota.*"],
+  "allowAdditionalPaths": ["apiParams.*", "chatQuota.*", "imageQuota.*"],
   "deprecatedFields": {
     "apiHealthWeights": {
       "note": "健康评分权重已迁移到 GUI 本地偏好文件，不再写入 runtime_config.json。"
@@ -209,6 +216,21 @@
       "ui": "tags",
       "placeholder": "输入 QQ 号后回车"
     },
+    "chatAccess.mode": {
+      "title": "聊天权限模式",
+      "type": "enum",
+      "description": "blacklist=黑名单模式，沿用当前群聊/私聊规则；whitelist=只有手动加入聊天白名单的 QQ 才能获得普通聊天回复。用户黑名单始终优先。",
+      "default": "blacklist",
+      "enum": ["blacklist", "whitelist"]
+    },
+    "chatAccess.whitelistUsers": {
+      "title": "聊天白名单",
+      "type": "string[]",
+      "description": "仅在 whitelist 模式下生效。只有这里的 QQ 才能获得普通聊天回复。",
+      "default": [],
+      "ui": "tags",
+      "placeholder": "输入 QQ 号后回车"
+    },
     "imageAccess.mode": {
       "title": "图像权限模式",
       "type": "enum",
@@ -231,6 +253,28 @@
       "default": {},
       "ui": "keyValue",
       "keyPlaceholder": "群号",
+      "valuePlaceholder": "次数"
+    },
+    "chatQuota.enabled": {
+      "title": "启用聊天个人限额",
+      "type": "boolean",
+      "description": "是否对非主人启用按 QQ 统计的普通聊天额度限制。群总额度 groupLimits 仍然独立生效。",
+      "default": false
+    },
+    "chatQuota.defaultLimit": {
+      "title": "默认聊天个人限额",
+      "type": "number",
+      "description": "普通用户在一个 12 小时周期内默认允许的聊天调用次数。0 表示不限额。",
+      "default": 0,
+      "minimum": 0
+    },
+    "chatQuota.userLimits": {
+      "title": "聊天单独限额 (QQ → 次数/12小时)",
+      "type": "record<number>",
+      "description": "指定 QQ 的聊天调用上限，会覆盖默认聊天个人限额。",
+      "default": {},
+      "ui": "keyValue",
+      "keyPlaceholder": "QQ号",
       "valuePlaceholder": "次数"
     },
     "maxGroupMessages": {

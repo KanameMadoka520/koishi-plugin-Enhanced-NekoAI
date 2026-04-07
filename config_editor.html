@@ -988,6 +988,8 @@
           masterQQ: [], nickName: 'Neko', privateRefuse: '', logLevel: 'debug',
           activeApiIndex: 0, activeGroupPersonalityIndex: 0, activePrivatePersonalityIndex: 0,
           groups: [], allowPrivateTalkingUsers: [], userBlacklist: [], groupLimits: {},
+          chatAccess: { mode: 'blacklist', whitelistUsers: [] },
+          chatQuota: { enabled: false, defaultLimit: 0, userLimits: {} },
           imageAccess: { mode: 'blacklist', whitelistUsers: [] },
           maxGroupMessages: 20, singleMaxMessages: 40,
           randomReply: 0.3, messagesLength: 15, sleepTime: 1000,
@@ -1083,6 +1085,11 @@
           cfg.groups = Array.isArray(raw.groups) ? [...raw.groups] : [];
           cfg.allowPrivateTalkingUsers = Array.isArray(raw.allowPrivateTalkingUsers) ? [...raw.allowPrivateTalkingUsers] : [];
           cfg.userBlacklist = Array.isArray(raw.userBlacklist) ? [...raw.userBlacklist] : [];
+          cfg.chatAccess.mode = raw.chatAccess?.mode === 'whitelist' ? 'whitelist' : 'blacklist';
+          cfg.chatAccess.whitelistUsers = Array.isArray(raw.chatAccess?.whitelistUsers) ? [...new Set(raw.chatAccess.whitelistUsers.map(v => String(v || '').trim()).filter(Boolean))] : [];
+          cfg.chatQuota.enabled = raw.chatQuota?.enabled === true;
+          cfg.chatQuota.defaultLimit = raw.chatQuota?.defaultLimit !== undefined ? Math.max(0, Math.floor(Number(raw.chatQuota.defaultLimit) || 0)) : 0;
+          cfg.chatQuota.userLimits = raw.chatQuota?.userLimits && typeof raw.chatQuota.userLimits === 'object' ? {...raw.chatQuota.userLimits} : {};
           cfg.imageAccess.mode = raw.imageAccess?.mode === 'whitelist' ? 'whitelist' : 'blacklist';
           cfg.imageAccess.whitelistUsers = Array.isArray(raw.imageAccess?.whitelistUsers) ? [...new Set(raw.imageAccess.whitelistUsers.map(v => String(v || '').trim()).filter(Boolean))] : [];
           // Objects
@@ -1143,6 +1150,8 @@
             groupLimits: "群聊12小时回复限制 { 群号: 次数 }",
             logLevel: "日志级别: debug/info/warn/error",
             userBlacklist: "用户黑名单",
+            chatAccess: "聊天权限配置：控制普通聊天回复的权限模式与聊天白名单",
+            chatQuota: "聊天限额配置：控制普通聊天默认额度与指定QQ的单独额度",
             imageAccess: "图像权限配置：控制生图/修图的权限模式与图像白名单",
             groupPersonalityMap: "按群独立人格绑定 { 群号: 编号 }",
             groupApiMap: "按群独立模型绑定 { 群号: 编号 }",
@@ -1179,6 +1188,15 @@
           out.groupLimits = {...cfg.groupLimits};
           out.logLevel = cfg.logLevel;
           out.userBlacklist = [...cfg.userBlacklist];
+          out.chatAccess = {
+            mode: cfg.chatAccess.mode === 'whitelist' ? 'whitelist' : 'blacklist',
+            whitelistUsers: [...new Set((cfg.chatAccess.whitelistUsers || []).map(v => String(v || '').trim()).filter(Boolean))]
+          };
+          out.chatQuota = {
+            enabled: cfg.chatQuota.enabled === true,
+            defaultLimit: Math.max(0, Math.floor(Number(cfg.chatQuota.defaultLimit) || 0)),
+            userLimits: {...cfg.chatQuota.userLimits}
+          };
           out.imageAccess = {
             mode: cfg.imageAccess.mode === 'whitelist' ? 'whitelist' : 'blacklist',
             whitelistUsers: [...new Set((cfg.imageAccess.whitelistUsers || []).map(v => String(v || '').trim()).filter(Boolean))]
