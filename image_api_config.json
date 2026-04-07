@@ -1,0 +1,12 @@
+[
+  {
+    "providerType": "xai",
+    "generationUrl": "https://api.x.ai/v1/images/generations",
+    "editUrl": "https://api.x.ai/v1/images/edits",
+    "apiKey": "xai-your-key",
+    "modelName": "grok-imagine-image",
+    "remark": "xAI 官方图像示例",
+    "aspectRatio": "",
+    "resolution": ""
+  }
+]

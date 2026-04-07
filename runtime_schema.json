@@ -14,7 +14,7 @@
       "title": "活跃节点/人格",
       "summary": "当前生效的 API 与人格索引。",
       "mode": "both",
-      "fields": ["activeApiIndex", "activeGroupPersonalityIndex", "activePrivatePersonalityIndex"]
+      "fields": ["activeApiIndex", "activeImageApiIndex", "activeGroupPersonalityIndex", "activePrivatePersonalityIndex"]
     },
     {
       "id": "groups",
@@ -161,6 +161,13 @@
       "title": "活跃 API 索引",
       "type": "number",
       "description": "当前默认使用的 API 节点编号。",
+      "default": 0,
+      "minimum": 0
+    },
+    "activeImageApiIndex": {
+      "title": "活跃图像 API 索引",
+      "type": "number",
+      "description": "当前默认使用的图像 API 节点编号。",
       "default": 0,
       "minimum": 0
     },

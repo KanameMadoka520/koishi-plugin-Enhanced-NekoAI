@@ -2,7 +2,8 @@
   "_comments": {
     "masterQQ": "主人QQ号列表(字符串数组)，拥有各项高级指令的最高权限",
     "nickName": "机器人的称呼/昵称，用于防触发和语境代入",
-    "activeApiIndex": "当前使用的API节点编号（对应 api_config.json 的索引，从 0 开始）",
+    "activeApiIndex": "当前使用的聊天API节点编号（对应 api_config.json 的索引，从 0 开始）",
+    "activeImageApiIndex": "当前使用的图像API节点编号（对应 image_api_config.json 的索引，从 0 开始）",
     "activeGroupPersonalityIndex": "当前使用的群聊人格编号（对应 group_personality.json 的索引）",
     "activePrivatePersonalityIndex": "当前使用的私聊人格编号（对应 private_personality.json 的索引）",
     "forwardModelList": "是否以合并转发形式输出模型列表 (true/false)",
@@ -50,6 +51,7 @@
   ],
   "nickName": "Neko",
   "activeApiIndex": 0,
+  "activeImageApiIndex": 0,
   "activeGroupPersonalityIndex": 0,
   "activePrivatePersonalityIndex": 0,
   "forwardModelList": true,
