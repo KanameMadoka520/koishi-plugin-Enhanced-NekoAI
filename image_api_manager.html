@@ -252,30 +252,32 @@
           <div class="field">
             <label>默认宽高比</label>
             <select v-model="node.aspectRatio" @change="markDirty()">
-              <option value="">默认比例</option>
-              <option value="auto">auto</option>
-              <option value="1:1">1:1</option>
-              <option value="16:9">16:9</option>
-              <option value="9:16">9:16</option>
-              <option value="4:3">4:3</option>
-              <option value="3:4">3:4</option>
-              <option value="3:2">3:2</option>
-              <option value="2:3">2:3</option>
-              <option value="2:1">2:1</option>
-              <option value="1:2">1:2</option>
-              <option value="19.5:9">19.5:9</option>
-              <option value="9:19.5">9:19.5</option>
-              <option value="20:9">20:9</option>
-              <option value="9:20">9:20</option>
+              <option value="">空白（本节点不主动传比例，交给命令参数或 xAI 自己决定）</option>
+              <option value="auto">auto（显式告诉 xAI 自动选比例）</option>
+              <option value="1:1">1:1（正方形）</option>
+              <option value="16:9">16:9（横屏）</option>
+              <option value="9:16">9:16（竖屏）</option>
+              <option value="4:3">4:3（横向标准）</option>
+              <option value="3:4">3:4（纵向标准）</option>
+              <option value="3:2">3:2（横向摄影）</option>
+              <option value="2:3">2:3（纵向摄影）</option>
+              <option value="2:1">2:1（超宽横幅）</option>
+              <option value="1:2">1:2（超长竖幅）</option>
+              <option value="19.5:9">19.5:9（手机横屏）</option>
+              <option value="9:19.5">9:19.5（手机竖屏）</option>
+              <option value="20:9">20:9（超长横屏）</option>
+              <option value="9:20">9:20（超长竖屏）</option>
             </select>
+            <div class="field-help">空白不等于 auto。空白表示这个节点不会主动传 <span class="mono">aspect_ratio</span>；如果命令里也没写 <span class="mono">--ratio</span>，就完全交给 xAI 自己决定。auto 表示会显式传 <span class="mono">aspect_ratio=auto</span> 给 xAI。</div>
           </div>
           <div class="field">
             <label>默认分辨率</label>
             <select v-model="node.resolution" @change="markDirty()">
-              <option value="">默认清晰度</option>
-              <option value="1k">1k</option>
-              <option value="2k">2k</option>
+              <option value="">空白（本节点不主动传清晰度，交给命令参数或 xAI 自己决定）</option>
+              <option value="1k">1k（标准清晰度）</option>
+              <option value="2k">2k（高清清晰度）</option>
             </select>
+            <div class="field-help">空白表示这个节点不会主动传 <span class="mono">resolution</span>；如果命令里也没写 <span class="mono">--resolution</span>，就完全交给 xAI 自己决定。当前预设只有 <span class="mono">1k</span> 和 <span class="mono">2k</span>。</div>
           </div>
           <div class="field">
             <label>API Key</label>
