@@ -134,7 +134,7 @@
     .api-row label { width: 80px; font-size: 13px; text-align: right; font-weight: 500; color: var(--text-secondary); flex-shrink: 0; padding-top: 7px; }
     .field-wrapper { flex: 1; min-width: 0; }
     .field-inner { display: flex; gap: 4px; }
-    .field-inner input { flex: 1; }
+    .field-inner input, .field-inner select { flex: 1; }
     .api-row input, .api-row select { width: 100%; padding: 7px 10px; border: 1px solid var(--border-input); border-radius: 4px; font-size: 13px; outline: none; transition: 0.2s; font-family: monospace; background: var(--bg-input); color: var(--text-primary); }
     .api-row input:focus, .api-row select:focus { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(24,144,255,0.2); }
 	    .field-error { border-color: var(--danger) !important; }
@@ -379,6 +379,75 @@
                 </div>
               </div>
               <div class="api-row">
+                <label>xAI 图像:</label>
+                <div class="field-wrapper">
+                  <div class="toggle-line">
+                    <input class="toggle-checkbox" type="checkbox" v-model="api.xaiImageEnabled" @change="markDirtyField()">
+                    <div class="toggle-content">
+                      <div class="toggle-title">启用 xAI 图像生成 / 编辑</div>
+                      <div class="field-help">这组配置独立走 xAI 图像端点，不影响普通聊天接口。仍复用当前节点的 API Key，适合给同一个节点附加生图能力。管理器暂不提供图像一键测活，避免直接消耗图像额度。</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="api-row">
+                <label>图像模型:</label>
+                <div class="field-wrapper">
+                  <input type="text" v-model="api.xaiImageModel" :disabled="!api.xaiImageEnabled" placeholder="留空则默认 grok-imagine-image" @input="markDirtyField()">
+                  <div class="field-help">xAI 官方常见模型名：grok-imagine-image。</div>
+                </div>
+              </div>
+              <div class="api-row">
+                <label>生图 URL:</label>
+                <div class="field-wrapper">
+                  <div class="field-inner">
+                    <input type="text" v-model="api.xaiImageGenerationUrl" :disabled="!api.xaiImageEnabled" placeholder="先填基础地址，需要时点右侧按钮补常见后缀" @input="markDirtyField()">
+                    <button class="eye-btn" :disabled="!api.xaiImageEnabled" @click.prevent="appendXaiImageGenerationSuffix(api)" title="只会补图像生成接口的常见默认后缀，不会覆盖你自己写的自定义路径">补 /v1/images/generations</button>
+                  </div>
+                  <div class="field-help">常见默认后缀：/v1/images/generations。URL 仍然完全由你决定，按钮只做辅助补全。</div>
+                </div>
+              </div>
+              <div class="api-row">
+                <label>修图 URL:</label>
+                <div class="field-wrapper">
+                  <div class="field-inner">
+                    <input type="text" v-model="api.xaiImageEditUrl" :disabled="!api.xaiImageEnabled" placeholder="先填基础地址，需要时点右侧按钮补常见后缀" @input="markDirtyField()">
+                    <button class="eye-btn" :disabled="!api.xaiImageEnabled" @click.prevent="appendXaiImageEditSuffix(api)" title="只会补图像编辑接口的常见默认后缀，不会覆盖你自己写的自定义路径">补 /v1/images/edits</button>
+                  </div>
+                  <div class="field-help">常见默认后缀：/v1/images/edits。支持引用或附带图片后发起修图。</div>
+                </div>
+              </div>
+              <div class="api-row">
+                <label>图像参数:</label>
+                <div class="field-wrapper">
+                  <div class="field-inner">
+                    <select v-model="api.xaiImageAspectRatio" :disabled="!api.xaiImageEnabled" @change="markDirtyField()">
+                      <option value="">默认比例</option>
+                      <option value="auto">auto</option>
+                      <option value="1:1">1:1</option>
+                      <option value="16:9">16:9</option>
+                      <option value="9:16">9:16</option>
+                      <option value="4:3">4:3</option>
+                      <option value="3:4">3:4</option>
+                      <option value="3:2">3:2</option>
+                      <option value="2:3">2:3</option>
+                      <option value="2:1">2:1</option>
+                      <option value="1:2">1:2</option>
+                      <option value="19.5:9">19.5:9</option>
+                      <option value="9:19.5">9:19.5</option>
+                      <option value="20:9">20:9</option>
+                      <option value="9:20">9:20</option>
+                    </select>
+                    <select v-model="api.xaiImageResolution" :disabled="!api.xaiImageEnabled" @change="markDirtyField()">
+                      <option value="">默认清晰度</option>
+                      <option value="1k">1k</option>
+                      <option value="2k">2k</option>
+                    </select>
+                  </div>
+                  <div class="field-help">xAI 文档已公开支持上述比例，以及 1k / 2k 分辨率。若服务端不接受这些参数，可留空。</div>
+                </div>
+              </div>
+              <div class="api-row">
                 <label>备 注:</label>
                 <div class="field-wrapper">
                   <input type="text" v-model="api.remark" placeholder="标注来源、组别或特征" @input="markDirtyField()">
@@ -473,7 +542,21 @@
         const history = ref([]);
         const historyIndex = ref(-1);
         let isUndoRedo = false;
-        const cloneApis = arr => arr.map(a => ({_id:a._id,apiUrl:a.apiUrl,apiKey:a.apiKey,modelName:a.modelName,remark:a.remark,aiType:a.aiType,xaiWebSearchEnabled:a.xaiWebSearchEnabled===true}));
+        const cloneApis = arr => arr.map(a => ({
+          _id:a._id,
+          apiUrl:a.apiUrl,
+          apiKey:a.apiKey,
+          modelName:a.modelName,
+          remark:a.remark,
+          aiType:a.aiType,
+          xaiWebSearchEnabled:a.xaiWebSearchEnabled===true,
+          xaiImageEnabled:a.xaiImageEnabled===true,
+          xaiImageGenerationUrl:a.xaiImageGenerationUrl||'',
+          xaiImageEditUrl:a.xaiImageEditUrl||'',
+          xaiImageModel:a.xaiImageModel||'',
+          xaiImageAspectRatio:a.xaiImageAspectRatio||'',
+          xaiImageResolution:a.xaiImageResolution||''
+        }));
         const pushHistory = () => {
           if (isUndoRedo) return;
           const snap = cloneApis(apis.value);
@@ -512,7 +595,7 @@
           const groups = {}; const order = [];
           apis.value.forEach((api, idx) => {
             if (q) {
-              const hit = [api.modelName,api.remark,api.aiType].some(s => (s||'').toLowerCase().includes(q));
+              const hit = [api.modelName,api.remark,api.aiType,api.xaiImageModel,api.xaiImageEnabled ? 'xai 图像 生图 修图' : ''].some(s => (s||'').toLowerCase().includes(q));
               if (!hit) return;
             }
             const p = extractProvider(api.remark);
@@ -574,7 +657,7 @@
         };
         const batchExport = () => {
           const sel = apis.value.filter(a => selectedIds.has(a._id));
-          const payload = sel.map(i => ({apiUrl:i.apiUrl,apiKey:i.apiKey,modelName:i.modelName,remark:i.remark,aiType:i.aiType,xaiWebSearchEnabled:i.xaiWebSearchEnabled===true}));
+          const payload = sel.map(i => ({apiUrl:i.apiUrl,apiKey:i.apiKey,modelName:i.modelName,remark:i.remark,aiType:i.aiType,xaiWebSearchEnabled:i.xaiWebSearchEnabled===true,xaiImageEnabled:i.xaiImageEnabled===true,xaiImageGenerationUrl:i.xaiImageGenerationUrl||'',xaiImageEditUrl:i.xaiImageEditUrl||'',xaiImageModel:i.xaiImageModel||'',xaiImageAspectRatio:i.xaiImageAspectRatio||'',xaiImageResolution:i.xaiImageResolution||''}));
           const blob = new Blob([JSON.stringify(payload,null,2)], {type:'application/json'});
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a'); a.href=url;
@@ -601,6 +684,12 @@
 	        };
 	        const getDefaultSuffixActionLabelForApi = api => `补 ${getDefaultSuffixForApi(api)}`;
 	        const getDefaultSuffixHintForApi = api => `常见默认后缀：${getDefaultSuffixForApi(api)}`;
+	        const appendKnownSuffix = (current, suffix, regex, tip) => {
+	          const normalized = String(current || '').trim();
+	          if (/[?#]/.test(normalized)) { displayToast('当前 URL 含查询参数或锚点，请手动补后缀以避免拼错路径', 'warn'); return normalized; }
+	          if (regex.test(normalized)) { displayToast(tip || '当前 URL 已包含常见默认后缀', 'warn'); return normalized; }
+	          return normalized ? `${normalized.replace(/\/+$/, '')}${suffix}` : suffix;
+	        };
 	        const hasDefaultSuffixForApi = api => {
 	          const type = normalizeAiType(api);
 	          const url = String(api?.apiUrl || '');
@@ -617,6 +706,20 @@
 	          api.apiUrl = current ? `${current.replace(/\/+$/, '')}${suffix}` : suffix;
 	          markDirtyField();
 	          displayToast('已追加常见默认后缀。这里只是辅助填充，不会锁死你的自定义 URL。');
+	        };
+	        const appendXaiImageGenerationSuffix = api => {
+	          const next = appendKnownSuffix(api?.xaiImageGenerationUrl, '/v1/images/generations', /\/v1\/images\/generations(?:[/?#]|$)/i, '当前 URL 已包含图像生成接口的常见默认后缀');
+	          if (next === api.xaiImageGenerationUrl) return;
+	          api.xaiImageGenerationUrl = next;
+	          markDirtyField();
+	          displayToast('已追加图像生成接口默认后缀。这里只是辅助填充，不会锁死你的自定义 URL。');
+	        };
+	        const appendXaiImageEditSuffix = api => {
+	          const next = appendKnownSuffix(api?.xaiImageEditUrl, '/v1/images/edits', /\/v1\/images\/edits(?:[/?#]|$)/i, '当前 URL 已包含图像编辑接口的常见默认后缀');
+	          if (next === api.xaiImageEditUrl) return;
+	          api.xaiImageEditUrl = next;
+	          markDirtyField();
+	          displayToast('已追加图像编辑接口默认后缀。这里只是辅助填充，不会锁死你的自定义 URL。');
 	        };
 	        const pingNode = async (api) => {
 	          pingResults[api._id] = 'testing';
@@ -672,7 +775,7 @@
         // File Ops
         const loadFromText = (text, name) => {
           let data = []; try{data=JSON.parse(text);}catch(e){data=[];}
-          apis.value = data.map(i => ({_id:genId(),apiUrl:i.apiUrl||'',apiKey:i.apiKey||'',modelName:i.modelName||'',remark:i.remark||'',aiType:((['responses','response','openai-response'].includes((i.aiType||'').toLowerCase())||(/\/responses(?:\?|$)/i.test(i.apiUrl||'')))?'responses':((i.aiType||'openai').toLowerCase()==='gemini'?'gemini':((i.aiType||'openai').toLowerCase()==='anthropic'?'anthropic':'openai'))),xaiWebSearchEnabled:i.xaiWebSearchEnabled===true}));
+          apis.value = data.map(i => ({_id:genId(),apiUrl:i.apiUrl||'',apiKey:i.apiKey||'',modelName:i.modelName||'',remark:i.remark||'',aiType:((['responses','response','openai-response'].includes((i.aiType||'').toLowerCase())||(/\/responses(?:\?|$)/i.test(i.apiUrl||'')))?'responses':((i.aiType||'openai').toLowerCase()==='gemini'?'gemini':((i.aiType||'openai').toLowerCase()==='anthropic'?'anthropic':'openai'))),xaiWebSearchEnabled:i.xaiWebSearchEnabled===true,xaiImageEnabled:i.xaiImageEnabled===true,xaiImageGenerationUrl:i.xaiImageGenerationUrl||'',xaiImageEditUrl:i.xaiImageEditUrl||'',xaiImageModel:i.xaiImageModel||'',xaiImageAspectRatio:i.xaiImageAspectRatio||'',xaiImageResolution:i.xaiImageResolution||''}));
           apis.value.forEach(a => {keyVisibility[a._id]=false;});
           fileName.value = name;
           isFileLoaded.value = true;
@@ -689,7 +792,7 @@
             if (err.name!=='AbortError') displayToast('无法读取文件', 'error');
           }
         };
-        const getPayload = () => apis.value.map(i => ({apiUrl:i.apiUrl,apiKey:i.apiKey,modelName:i.modelName,remark:i.remark,aiType:i.aiType,xaiWebSearchEnabled:i.xaiWebSearchEnabled===true}));
+        const getPayload = () => apis.value.map(i => ({apiUrl:i.apiUrl,apiKey:i.apiKey,modelName:i.modelName,remark:i.remark,aiType:i.aiType,xaiWebSearchEnabled:i.xaiWebSearchEnabled===true,xaiImageEnabled:i.xaiImageEnabled===true,xaiImageGenerationUrl:i.xaiImageGenerationUrl||'',xaiImageEditUrl:i.xaiImageEditUrl||'',xaiImageModel:i.xaiImageModel||'',xaiImageAspectRatio:i.xaiImageAspectRatio||'',xaiImageResolution:i.xaiImageResolution||''}));
         const saveFile = async () => {
           if (!fileHandle) return;
           if (hasValidationErrors.value && !confirm('有 '+Object.keys(validationErrors.value).length+' 个校验错误，确定保存？')) return;
@@ -709,18 +812,18 @@
 
         // CRUD
         const addApi = () => {
-          const n = {_id:genId(),apiUrl:'',apiKey:'',modelName:'',remark:'新增节点',aiType:'openai',xaiWebSearchEnabled:false};
+          const n = {_id:genId(),apiUrl:'',apiKey:'',modelName:'',remark:'新增节点',aiType:'openai',xaiWebSearchEnabled:false,xaiImageEnabled:false,xaiImageGenerationUrl:'',xaiImageEditUrl:'',xaiImageModel:'',xaiImageAspectRatio:'',xaiImageResolution:''};
           keyVisibility[n._id]=false; apis.value.push(n); pushHistory();
           setTimeout(()=>window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'}),100);
         };
         const insertApiAfter = i => {
-          const n = {_id:genId(),apiUrl:'',apiKey:'',modelName:'',remark:'新增节点',aiType:'openai',xaiWebSearchEnabled:false};
+          const n = {_id:genId(),apiUrl:'',apiKey:'',modelName:'',remark:'新增节点',aiType:'openai',xaiWebSearchEnabled:false,xaiImageEnabled:false,xaiImageGenerationUrl:'',xaiImageEditUrl:'',xaiImageModel:'',xaiImageAspectRatio:'',xaiImageResolution:''};
           keyVisibility[n._id]=false; apis.value.splice(i+1,0,n); pushHistory();
           setTimeout(()=>scrollToNode(i+1),100);
         };
         const cloneApi = i => {
           const t = apis.value[i];
-          const n = {_id:genId(),apiUrl:t.apiUrl,apiKey:t.apiKey,modelName:t.modelName+' (克隆)',remark:t.remark,aiType:t.aiType,xaiWebSearchEnabled:t.xaiWebSearchEnabled===true};
+          const n = {_id:genId(),apiUrl:t.apiUrl,apiKey:t.apiKey,modelName:t.modelName+' (克隆)',remark:t.remark,aiType:t.aiType,xaiWebSearchEnabled:t.xaiWebSearchEnabled===true,xaiImageEnabled:t.xaiImageEnabled===true,xaiImageGenerationUrl:t.xaiImageGenerationUrl||'',xaiImageEditUrl:t.xaiImageEditUrl||'',xaiImageModel:t.xaiImageModel||'',xaiImageAspectRatio:t.xaiImageAspectRatio||'',xaiImageResolution:t.xaiImageResolution||''};
           keyVisibility[n._id]=false; apis.value.splice(i+1,0,n); pushHistory();
           setTimeout(()=>scrollToNode(i+1),100); displayToast('节点已克隆');
         };
@@ -808,7 +911,7 @@
           validationErrors,hasValidationErrors,
           selectedIds,toggleSelect,selectAll,deselectAll,batchDelete,batchExport,
 	          pingResults,pingTimes,pingNode,batchPingAll,isBatchTesting,
-	          showShortcuts,markDirtyField,normalizeAiType,getDefaultSuffixHintForApi,getDefaultSuffixActionLabelForApi,appendDefaultSuffixForApi
+	          showShortcuts,markDirtyField,normalizeAiType,getDefaultSuffixHintForApi,getDefaultSuffixActionLabelForApi,appendDefaultSuffixForApi,appendXaiImageGenerationSuffix,appendXaiImageEditSuffix
 	        };
       }
     }).mount('#app');
