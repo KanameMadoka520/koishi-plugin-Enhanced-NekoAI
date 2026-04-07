@@ -87,7 +87,7 @@
       "fields": ["forwardStrategy", "forwardMaxLength", "forwardMaxSegments", "groupMentionWait", "groupMentionFocusMode", "forwardModelList", "modelListImageEnabled", "uiStyle"]
     }
   ],
-  "allowAdditionalPaths": ["apiParams.*"],
+  "allowAdditionalPaths": ["apiParams.*", "imageQuota.*"],
   "deprecatedFields": {
     "apiHealthWeights": {
       "note": "健康评分权重已迁移到 GUI 本地偏好文件，不再写入 runtime_config.json。"
@@ -329,6 +329,26 @@
       "type": "number",
       "description": "上下文闲置自动清空时间(ms)，0 表示关闭自动清空。",
       "default": 600000,
+      "minimum": 0
+    },
+    "imageQuota.enabled": {
+      "title": "启用图像限额",
+      "type": "boolean",
+      "description": "是否对非主人的生图 / 修图调用启用额度限制。主人始终不受此限制。",
+      "default": false
+    },
+    "imageQuota.defaultGenerateLimit": {
+      "title": "默认生图限额",
+      "type": "number",
+      "description": "普通用户在一个 12 小时周期内默认允许的生图额度。0 表示不限额。",
+      "default": 0,
+      "minimum": 0
+    },
+    "imageQuota.defaultEditLimit": {
+      "title": "默认修图限额",
+      "type": "number",
+      "description": "普通用户在一个 12 小时周期内默认允许的修图额度。0 表示不限额。",
+      "default": 0,
       "minimum": 0
     },
     "memorySummary.enabled": {
