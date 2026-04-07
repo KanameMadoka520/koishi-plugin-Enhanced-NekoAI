@@ -86,7 +86,7 @@ lib/
 
 ### 2. 多模型原生协议适配器
 
-在 `lib/api.js` 的 `getAiReply` 方法中，我们针对不同的模型（OpenAI 兼容格式、Anthropic 原生格式、Gemini 原生格式）进行了**差异化发包**。
+在 `lib/api.js` 的 `getAiReply` 方法中，我们针对不同的模型（OpenAI 兼容格式、OpenAI Responses API、Anthropic 原生格式、Gemini 原生格式）进行了**差异化发包**。
 
 如果你想要接入一种全新格式的 API（例如百度文心、阿里百炼的特殊格式），请在 `aiType` 的判定分支中新增一段 `if (aiType === "your_type")` 的 Payload 组装逻辑与返回值解析逻辑。
 
@@ -95,6 +95,7 @@ lib/
 | aiType | 请求头 | 请求体特点 |
 |--------|--------|------------|
 | `openai` | `Authorization: Bearer <key>` | 标准 `messages` 数组 |
+| `responses` | `Authorization: Bearer <key>` | `instructions` + `input`，支持 `input_text` / `input_image` |
 | `anthropic` | `x-api-key` + `anthropic-version` | `system` 独立、`messages` 结构 |
 | `gemini` | `x-goog-api-key` | `contents`/`parts` 嵌套 + `systemInstruction` |
 

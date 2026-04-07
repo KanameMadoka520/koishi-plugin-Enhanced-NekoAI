@@ -65,9 +65,11 @@
     .stat-item { display: flex; align-items: center; gap: 4px; }
     .stat-badge { padding: 1px 6px; border-radius: 8px; font-weight: bold; font-size: 11px; }
     .stat-badge.openai { background: #e6f4ff; color: #1890ff; }
+    .stat-badge.responses { background: #f3e8ff; color: #7c3aed; }
     .stat-badge.anthropic { background: #fff7e6; color: #d48806; }
     .stat-badge.gemini { background: #f6ffed; color: #52c41a; }
     [data-theme="dark"] .stat-badge.openai { background: #0a2540; }
+    [data-theme="dark"] .stat-badge.responses { background: #28163d; }
     [data-theme="dark"] .stat-badge.anthropic { background: #2a1a00; }
     [data-theme="dark"] .stat-badge.gemini { background: #0a2a0a; }
     .stat-warn { color: var(--danger); font-weight: bold; }
@@ -135,9 +137,10 @@
     .field-inner input { flex: 1; }
     .api-row input, .api-row select { width: 100%; padding: 7px 10px; border: 1px solid var(--border-input); border-radius: 4px; font-size: 13px; outline: none; transition: 0.2s; font-family: monospace; background: var(--bg-input); color: var(--text-primary); }
     .api-row input:focus, .api-row select:focus { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(24,144,255,0.2); }
-    .field-error { border-color: var(--danger) !important; }
-    .field-error:focus { box-shadow: 0 0 0 2px rgba(255,77,79,0.2) !important; }
-    .field-error-msg { font-size: 11px; color: var(--danger); margin-top: 3px; }
+	    .field-error { border-color: var(--danger) !important; }
+	    .field-error:focus { box-shadow: 0 0 0 2px rgba(255,77,79,0.2) !important; }
+	    .field-error-msg { font-size: 11px; color: var(--danger); margin-top: 3px; }
+	    .field-help { font-size: 11px; color: var(--text-muted); margin-top: 4px; line-height: 1.5; }
 
     .eye-btn { background: transparent; border: 1px solid var(--border-input); border-radius: 4px; cursor: pointer; font-size: 14px; padding: 4px 8px; color: var(--text-muted); transition: 0.2s; flex-shrink: 0; }
     .eye-btn:hover { border-color: var(--primary); color: var(--primary); }
@@ -320,20 +323,25 @@
                 <label>接口类型:</label>
                 <div class="field-wrapper">
                   <select v-model="api.aiType" @change="markDirtyField()">
-                    <option value="openai">openai (兼容主流)</option>
+                    <option value="openai">openai (completions)</option>
+                    <option value="responses">openai-response</option>
                     <option value="anthropic">anthropic (Claude原生)</option>
                     <option value="gemini">gemini (谷歌原生)</option>
                   </select>
                 </div>
               </div>
-              <div class="api-row">
-                <label>API URL:</label>
-                <div class="field-wrapper">
-                  <input type="text" v-model="api.apiUrl" placeholder="https://api.xxx.com/v1/chat/completions"
-                    :class="{'field-error': validationErrors[api._id]&&validationErrors[api._id].apiUrl}" @input="markDirtyField()">
-                  <div class="field-error-msg" v-if="validationErrors[api._id]&&validationErrors[api._id].apiUrl">{{ validationErrors[api._id].apiUrl }}</div>
-                </div>
-              </div>
+	              <div class="api-row">
+	                <label>API URL:</label>
+	                <div class="field-wrapper">
+	                  <div class="field-inner">
+	                    <input type="text" v-model="api.apiUrl" placeholder="先填基础地址，需要时点右侧按钮补常见后缀"
+	                      :class="{'field-error': validationErrors[api._id]&&validationErrors[api._id].apiUrl}" @input="markDirtyField()">
+	                    <button class="eye-btn" @click.prevent="appendDefaultSuffixForApi(api)" title="只会补这类接口的常见默认后缀，不会覆盖你自己写的自定义路径">添加默认后缀</button>
+	                  </div>
+	                  <div class="field-help">{{ getDefaultSuffixHintForApi(api) }}。URL 仍然完全由你决定，按钮只做辅助补全。</div>
+	                  <div class="field-error-msg" v-if="validationErrors[api._id]&&validationErrors[api._id].apiUrl">{{ validationErrors[api._id].apiUrl }}</div>
+	                </div>
+	              </div>
               <div class="api-row">
                 <label>API Key:</label>
                 <div class="field-wrapper">
@@ -557,25 +565,67 @@
           a.click(); URL.revokeObjectURL(url); displayToast('已导出 '+sel.length+' 个节点');
         };
 
-        // Ping
-        const pingResults = reactive({});
-        const pingTimes = reactive({});
-        const isBatchTesting = ref(false);
-        const pingNode = async (api) => {
-          pingResults[api._id] = 'testing';
-          const t0 = performance.now();
-          try {
-            const headers = {'Content-Type':'application/json'};
-            if (api.aiType === 'anthropic') {
+	        // Ping
+	        const pingResults = reactive({});
+	        const pingTimes = reactive({});
+	        const isBatchTesting = ref(false);
+	        const normalizeAiType = api => {
+	          const rawType = String(api?.aiType || 'openai').toLowerCase();
+	          if (['responses','response','openai-response'].includes(rawType)) return 'responses';
+	          if (rawType === 'openai' && /\/responses(?:\?|$)/i.test(api?.apiUrl || '')) return 'responses';
+	          return rawType || 'openai';
+	        };
+	        const getDefaultSuffixForApi = api => {
+	          const type = normalizeAiType(api);
+	          if (type === 'responses') return '/v1/responses';
+	          if (type === 'anthropic') return '/v1/messages';
+	          if (type === 'gemini') return `/v1beta/models/${(api?.modelName || '').trim() || '{model}'}:generateContent`;
+	          return '/v1/chat/completions';
+	        };
+	        const getDefaultSuffixHintForApi = api => `常见默认后缀：${getDefaultSuffixForApi(api)}`;
+	        const hasDefaultSuffixForApi = api => {
+	          const type = normalizeAiType(api);
+	          const url = String(api?.apiUrl || '');
+	          if (type === 'responses') return /\/v1\/responses(?:[/?#]|$)/i.test(url);
+	          if (type === 'anthropic') return /\/v1\/messages(?:[/?#]|$)/i.test(url);
+	          if (type === 'gemini') return /\/v1beta\/models\/[^/?#]+:generatecontent(?:[/?#]|$)/i.test(url);
+	          return /\/v1\/chat\/completions(?:[/?#]|$)/i.test(url);
+	        };
+	        const appendDefaultSuffixForApi = api => {
+	          const current = String(api?.apiUrl || '').trim();
+	          if (/[?#]/.test(current)) { displayToast('当前 URL 含查询参数或锚点，请手动补后缀以避免拼错路径', 'warn'); return; }
+	          if (hasDefaultSuffixForApi(api)) { displayToast('当前 URL 已包含这类接口的常见默认后缀', 'warn'); return; }
+	          const suffix = getDefaultSuffixForApi(api);
+	          api.apiUrl = current ? `${current.replace(/\/+$/, '')}${suffix}` : suffix;
+	          markDirtyField();
+	          displayToast('已追加常见默认后缀。这里只是辅助填充，不会锁死你的自定义 URL。');
+	        };
+	        const pingNode = async (api) => {
+	          pingResults[api._id] = 'testing';
+	          const t0 = performance.now();
+	          try {
+	            const resolvedType = normalizeAiType(api);
+	            const headers = {'Content-Type':'application/json'};
+            if (resolvedType === 'anthropic') {
               headers['x-api-key'] = api.apiKey;
               headers['anthropic-version'] = '2023-06-01';
               headers['anthropic-dangerous-direct-browser-access'] = 'true';
+            } else if (resolvedType === 'gemini') {
+              headers['x-goog-api-key'] = api.apiKey;
+              headers['Authorization'] = 'Bearer '+api.apiKey;
             } else {
               headers['Authorization'] = 'Bearer '+api.apiKey;
             }
+            const body = resolvedType === 'anthropic'
+              ? {model:api.modelName, max_tokens:1, messages:[{role:'user',content:[{type:'text',text:'hi'}]}]}
+              : resolvedType === 'gemini'
+                ? {contents:[{role:'user',parts:[{text:'hi'}]}], generationConfig:{maxOutputTokens:1}}
+                : resolvedType === 'responses'
+                  ? {model:api.modelName, input:'hi', max_output_tokens:1, store:false}
+                  : {model:api.modelName, max_tokens:1, messages:[{role:'user',content:'hi'}]};
             const resp = await fetch(api.apiUrl, {
               method:'POST', headers,
-              body: JSON.stringify({model:api.modelName, max_tokens:1, messages:[{role:'user',content:'hi'}]}),
+              body: JSON.stringify(body),
               signal: AbortSignal.timeout(15000)
             });
             pingTimes[api._id] = Math.round(performance.now()-t0);
@@ -604,7 +654,7 @@
         // File Ops
         const loadFromText = (text, name) => {
           let data = []; try{data=JSON.parse(text);}catch(e){data=[];}
-          apis.value = data.map(i => ({_id:genId(),apiUrl:i.apiUrl||'',apiKey:i.apiKey||'',modelName:i.modelName||'',remark:i.remark||'',aiType:i.aiType||'openai'}));
+          apis.value = data.map(i => ({_id:genId(),apiUrl:i.apiUrl||'',apiKey:i.apiKey||'',modelName:i.modelName||'',remark:i.remark||'',aiType:((['responses','response','openai-response'].includes((i.aiType||'').toLowerCase())||(/\/responses(?:\?|$)/i.test(i.apiUrl||'')))?'responses':((i.aiType||'openai').toLowerCase()==='gemini'?'gemini':((i.aiType||'openai').toLowerCase()==='anthropic'?'anthropic':'openai')))}));
           apis.value.forEach(a => {keyVisibility[a._id]=false;});
           fileName.value = name;
           isFileLoaded.value = true;
@@ -739,9 +789,9 @@
           aiTypeCounts,duplicateCount,isDuplicateNode,
           validationErrors,hasValidationErrors,
           selectedIds,toggleSelect,selectAll,deselectAll,batchDelete,batchExport,
-          pingResults,pingTimes,pingNode,batchPingAll,isBatchTesting,
-          showShortcuts,markDirtyField
-        };
+	          pingResults,pingTimes,pingNode,batchPingAll,isBatchTesting,
+	          showShortcuts,markDirtyField,getDefaultSuffixHintForApi,appendDefaultSuffixForApi
+	        };
       }
     }).mount('#app');
   </script>
