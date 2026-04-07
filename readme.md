@@ -8,6 +8,25 @@
 
 ---
 
+### 2026年4月 图像节点 / Responses / xAI 增量更新
+
+这一轮更新主要补齐了 **OpenAI Responses API、xAI Web Search 与 xAI 图像生成/编辑** 三块能力，并把“聊天模型节点”和“图像模型节点”彻底拆开，避免配置和路由互相污染。
+
+#### 本轮重点
+
+* **OpenAI Responses API 独立支持**：新增 `responses` / `openai-response` 节点类型，非流式兼容 `input_text`、`input_image` 与 `instructions`，适配更现代的 OpenAI / 兼容站 Responses 接口。
+* **xAI Web Search（仅 Responses）**：在 `openai-response` 节点上新增可选的 xAI Web Search 开关，仅在开启时向 Responses 请求体附加 `tools: [{ type: "web_search" }]`，适合 xAI 官方 API + Grok 模型场景。
+* **MiniMax Anthropic 兼容修复**：兼容 Anthropic 风格返回中 `thinking` 与 `text` 分块共存的情况，不再因只读 `content[0].text` 导致 `replace` 空指针异常。
+* **独立图像节点池**：新增 `image_api_config.json`，图像生成 / 图像编辑节点独立于 `api_config.json` 管理。聊天节点继续只负责文本 / 多模态对话，图像节点只负责 `neko.生图` / `neko.修图`。
+* **xAI 图像生成 / 编辑**：新增 `neko.生图`、`neko.画图`、`neko.修图`、`neko.图像模型列表`、`neko.图像模型搜索`、`neko.图像模型切换` 指令。
+* **图像输入输出链路优化**：修图命令会优先复用当前消息或引用消息中的图片，并尽量转成 `data:image/...;base64,...` 直接发给 xAI；输出优先请求 `b64_json`，必要时回退为 URL 下载后再转发给 QQ。
+* **图像命令可选参数**：
+  - `neko.生图`：支持 `--count` / `--ratio` / `--resolution` / `--model` / `--node`
+  - `neko.修图`：支持 `--ratio` / `--resolution` / `--model` / `--node`
+* **HTML 管理工具扩充**：除原有 `api_manager.html` / `config_editor.html` / `dashboard.html` / `history_viewer.html` 外，新增独立的 `image_api_manager.html`，专门管理 `image_api_config.json`。
+
+---
+
 ### 2026年3月2日~3日 大版本更新内容（相对于上一版本）
 
 本次更新是一次**从底层到顶层的全面重构**，将原先 1335 行的单文件架构彻底拆分为 15 个独立模块，并新增了大量核心功能。
@@ -59,6 +78,11 @@
 | `neko.智能路由 [开/关]` | 开关智能路由引擎 |
 | `neko.路由模式 [failover/round-robin/random]` | 切换路由策略 |
 | `neko.日志级别 [debug/info/warn/error]` | 动态调整日志输出级别 |
+| `neko.图像模型列表 [页码]` | 查看独立图像 API 节点列表 |
+| `neko.图像模型搜索 <关键词> [页码]` | 按备注 / 模型 / URL 搜索图像节点 |
+| `neko.图像模型切换 <编号>` | 切换当前默认图像节点 |
+| `neko.生图 <提示词>` | 调用 xAI 图像生成接口，支持 `--count / --ratio / --resolution / --model / --node` |
+| `neko.修图 <提示词>` | 调用 xAI 图像编辑接口，支持 `--ratio / --resolution / --model / --node` |
 
 #### 增强改进
 
@@ -123,7 +147,10 @@
 
 * **多模型与多人格无缝切换（Native Multi-Protocol & Personas）**：
 * **多节点池**：支持随时在群聊中通过指令动态添加、查看、切换 API 节点（中转站 / 备用模型），无需触碰服务器后台。
-* **原生底层请求适配**：内置原生支持 **OpenAI、Anthropic (Claude) 以及 Gemini** 三大底层接口请求格式。插件会在发包前，根据你配置的格式标签（`aiType`），在底层动态重组请求体（如 Anthropic 的 `messages` 结构与 `max_tokens` 强校验，或 Gemini 的 `contents` 与 `parts` 嵌套格式）。彻底拒绝因中转站格式转换不佳导致的兼容性报错。
+* **原生底层请求适配**：内置原生支持 **OpenAI Chat Completions、OpenAI Responses API、Anthropic (Claude) 以及 Gemini** 四类文本/多模态接口请求格式。插件会在发包前，根据你配置的格式标签（`aiType`），在底层动态重组请求体（如 Responses 的 `instructions + input`、Anthropic 的 `messages` 结构与 `max_tokens` 强校验，或 Gemini 的 `contents` 与 `parts` 嵌套格式）。彻底拒绝因中转站格式转换不佳导致的兼容性报错。
+* **xAI Web Search（Responses 专属）**：当节点类型为 `openai-response` 且显式开启 xAI Web Search 时，插件会为请求附加 `tools: [{ type: "web_search" }]`。该能力默认关闭，只建议在 xAI 官方 API + Grok 模型场景下使用。
+* **独立图像节点池**：图像生成 / 图像编辑已从聊天节点中拆出，使用单独的 `image_api_config.json` 管理，不再混入 `api_config.json`，避免聊天路由与图像路由互相影响。
+* **xAI 图像生成 / 编辑**：支持 `POST /v1/images/generations` 与 `POST /v1/images/edits` 两类端点，并通过独立命令体系管理。图像命令优先使用 `image_api_config.json` 中的活跃图像节点，而不是聊天节点。
 * **独立双轨人格**：支持分别为群聊和私聊建立独立的 Prompt 人格库，并在对话中一键无缝热切换。
 
 
@@ -210,30 +237,37 @@ plugins:
 
 3. **`api_config.json` (多节点 API 配置)**
 
-* 在此文件内可无限添加不同的 API 站点和模型。包含 `apiUrl`, `modelName`, `apiKey`, `remark` (备注)。
-* **核心字段 `aiType**`：可选值为 `openai`、`anthropic` 或 `gemini`。插件会根据该字段决定发往该接口的 JSON Payload 结构，保障请求成功率。
+* 在此文件内可无限添加不同的聊天 API 站点和模型。包含 `apiUrl`, `modelName`, `apiKey`, `remark` (备注)。
+* **核心字段 `aiType`**：可选值为 `openai`、`responses`、`anthropic` 或 `gemini`。GUI 中会把它们显示为 `openai (completions)`、`openai-response`、`Anthropic`、`Gemini`；其中 `openai-response` 本质上仍会归一化为 `responses` 处理。
+* **`xaiWebSearchEnabled`**：仅对 `responses` / `openai-response` 节点生效。开启后会为 Responses 请求附加 xAI Web Search 工具；默认关闭，建议仅在 xAI 官方 API + Grok 模型场景使用。
 
-4. **`group_personality.json` & `private_personality.json` (独立人格库)**
+4. **`image_api_config.json` (独立图像 API 配置)**
+
+* 专门给 `neko.生图` / `neko.修图` / `neko.图像模型列表` / `neko.图像模型搜索` / `neko.图像模型切换` 使用。
+* 每个节点包含 `providerType`, `generationUrl`, `editUrl`, `apiKey`, `modelName`, `remark`, `aspectRatio`, `resolution`。
+* **当前仅内置 xAI 图像类型**，但结构上已经独立出来，后续接入其他图像 provider 时不需要再污染聊天节点列表。
+
+5. **`group_personality.json` & `private_personality.json` (独立人格库)**
 
 * 分别管理群聊和私聊的 Prompt（系统提示词/世界观设定），支持在群内发送指令进行轮盘式一键切换。
 
-5. **`group_usage_counts.json` (群聊限流计数器)**
+6. **`group_usage_counts.json` (群聊限流计数器)**
 
 * 独立存储当前周期的群聊调用计数。跨越早晚 6 点分界线时，会自动重置当前周期 `periodId` 并将计数清零。
 
-6. **`chat-history/` (历史对话日志目录)**
+7. **`chat-history/` (历史对话日志目录)**
 
 * 自动生成的本地行为审计文件夹，按 `YYYY-MM-DD_Day/Night.json` 格式滚动持久化保存脱敏后的轻量级对话日志。
 
-7. **`memory/` (长期记忆持久化目录)**
+8. **`memory/` (长期记忆持久化目录)**
 
 * 自动存储群聊和私聊的对话记忆 JSON 文件，插件重启后记忆自动恢复。记忆压缩后的摘要也保存在此目录中。
 
-8. **`commands.json` (指令避让字典)**
+9. **`commands.json` (指令避让字典)**
 
 * 定义需要避让的 Koishi 指令前缀列表，防止 AI 抢答其他插件的指令。
 
-8. **`lib/` (模块化源码目录)**
+10. **`lib/` (模块化源码目录)**
 
 * 插件核心逻辑按功能拆分为 15 个独立模块：`state.js`（全局状态）、`logger.js`（分级日志）、`config.js`（配置管理）、`utils.js`（工具函数）、`parser.js`（消息解析）、`sender.js`（消息发送）、`api.js`（API 调用）、`queue.js`（请求队列）、`ratelimit.js`（群聊限流）、`history.js`（历史日志）、`memory.js`（长期记忆）、`memes.js`（表情包）、`commands.js`（指令注册）、`listener.js`（事件处理）、`render.js`（帮助菜单 / 人格列表 / 模型列表 / 状态面板图片卡片渲染）。
 
@@ -259,7 +293,19 @@ plugins:
 
 > 现阶段更适合把它理解为“主管理面板”，而不是还在占坑的半成品。
 
-#### 方案二：独立 HTML 工具（已归档至 Git 历史）
+#### 方案二：插件内自带 HTML 工具（轻量 / 无需桌面壳）
+
+如果你不想打开 Tauri 桌面 GUI，也可以继续直接使用插件目录里的 HTML 工具：
+
+* `api_manager.html`：只管理聊天节点 `api_config.json`
+* `image_api_manager.html`：只管理图像节点 `image_api_config.json`
+* `config_editor.html`：运行时配置编辑
+* `dashboard.html`：概览与工具入口，同时会展示聊天 / 图像两套配置的状态
+* `history_viewer.html`：历史记录查看
+
+这一轮更新后，聊天节点和图像节点已经在工具层面也彻底拆开，不再共用一个列表。
+
+#### 方案三：独立 HTML 工具（已归档至 Git 历史）
 
 此前提供的纯前端 HTML 可视化工具已归档至 Git 历史中；本开源仓库当前不再内置这些文件。如需恢复旧版 HTML 工具，可从历史提交中检出对应文件。
 
@@ -346,6 +392,32 @@ plugins:
 * `neko.模型列表输出合并 [enable:string]`：开关文本模式下的合并转发输出。**仅在模型列表图片渲染关闭时生效。**
 * `neko.模型切换 <编号>`：一秒无缝切换当前发包的底层 API 节点与模型，对话过程中随时可用。
 
+补充说明：
+
+* `openai-response` / Responses 节点当前更推荐通过 GUI Manager、`api_config.json` 或插件内 `api_manager.html` 直接维护；这样也更方便同时配置 `xaiWebSearchEnabled`。
+* URL 仍然建议你自己掌控完整路径。GUI / HTML 管理器里的“补默认后缀”按钮只是辅助，不会强行改写你的兼容站后缀。
+
+#### 图像节点与生图指令（⚠️ 仅限主人可用）
+
+* `neko.图像模型列表 [页码]`：查看 `image_api_config.json` 里的独立图像节点列表。
+* `neko.图像模型搜索 <关键词> [页码]`：按备注 / 模型名 / 生成 URL / 修图 URL 搜索图像节点。
+* `neko.图像模型切换 <编号>`：切换当前默认图像节点，对应 `runtime_config.json` 的 `activeImageApiIndex`。
+* `neko.生图 <提示词>`：调用图像生成节点。支持 `--count`、`--ratio`、`--resolution`、`--model`、`--node`。
+* `neko.画图 <提示词>`：`neko.生图` 的别名。
+* `neko.修图 <提示词>`：调用图像编辑节点。会优先复用当前消息或引用消息里的图片，支持 `--ratio`、`--resolution`、`--model`、`--node`。
+
+常见示例：
+
+* `neko.图像模型搜索 grok`
+* `neko.生图 赛博朋克夜雨中的猫娘 --count 2 --ratio 16:9 --resolution 2k`
+* `neko.修图 给她加一顶黑色贝雷帽 --ratio 1:1`
+
+补充说明：
+
+* 图像节点和聊天节点完全分离。`neko.模型列表` 不会显示生图/修图节点，图像相关请使用 `neko.图像模型列表`。
+* 当前内置的图像 provider 只有 xAI，推荐使用 `generationUrl = /v1/images/generations`、`editUrl = /v1/images/edits`。
+* 输出链路会优先请求 `b64_json` 直接回传到 QQ；如果下游只返回 URL，插件会自动下载后再发送。
+
 #### 独立人格管理指令（⚠️ 仅限主人可用）
 
 * `neko.群聊人格添加 <备注> <提示词>` / `neko.私聊人格添加 <备注> <提示词>`：录入全新的 Prompt 世界观系统提示词。
@@ -423,7 +495,8 @@ plugins:
 #### 管理工具（进行中）
 
 * [x] Tauri 桌面应用 Rust 后端（配置/记忆/历史/API测试/文件监听）
-* [ ] Tauri 桌面应用前端页面（7 个功能页面待开发）
+* [x] Tauri 桌面应用前端主管理面板（聊天节点 / 图像节点 / 配置 / 人格 / 记忆 / 历史 / 用量 / 安全发布 / 评测）
+* [x] 插件内轻量 HTML 管理工具（`api_manager.html` / `image_api_manager.html` / `config_editor.html` / `dashboard.html` / `history_viewer.html`）
 * [x] 多主题图片卡片系统（帮助菜单 / 人格列表 / 状态面板 / 当前群状态 / 模型列表分页，需配合 `@seidko/koishi-plugin-puppeteer`）
 
 #### 未来计划

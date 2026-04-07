@@ -20,13 +20,13 @@
 
 ```
 lib/
-├── state.js        ← 全局状态单例（所有模块共享的变量池）
+├── state.js        ← 全局状态单例（所有模块共享的变量池，含聊天节点池 / 图像节点池）
 ├── logger.js       ← 日志工具（带前缀和颜色的分级日志）
 ├── config.js       ← 配置加载、保存、默认值模板与 Koishi Schema 定义
 ├── utils.js        ← 通用工具函数（权限检查、群友名单、周期计算等）
 ├── parser.js       ← 消息内容解析（Base64 图片提取、外部链接嗅探、回复引用兼容解析）
 ├── sender.js       ← 消息发送（拟人分段、合并转发、Fallback 降级、表情包）
-├── api.js          ← AI API 调用（三协议适配、智能路由、故障转移）
+├── api.js          ← AI API 调用（文本协议适配、智能路由、xAI 图像生成/编辑）
 ├── queue.js        ← 请求队列（FIFO 并发控制）
 ├── ratelimit.js    ← 群聊限流（12小时周期计数、阶梯预警）
 ├── history.js      ← 聊天历史日志持久化（按日期/时段滚动生成）
@@ -40,10 +40,11 @@ lib/
 **开发规则**：
 * **不要在 `index.js` 中添加业务逻辑**。`index.js` 只负责调用各模块的初始化函数。
 * **所有共享状态必须通过 `state.js`** 读写，不要在模块中定义全局变量。
-* **新增指令请在 `commands.js`** 中添加，新增消息处理逻辑请在 `listener.js` 中添加。
+* **新增聊天 / 图像指令请在 `commands.js`** 中添加，新增消息处理逻辑请在 `listener.js` 中添加。
 * **如果模块要访问可选服务（例如 `ctx.puppeteer`）**，请在入口导出的 `inject` 中显式声明为 `optional`，避免 Koishi 输出属性注册警告。
 * **避免循环依赖**：如果模块 A 和模块 B 互相需要，请在函数内部使用延迟 `require()`（不要在文件顶部 require）。例如 `commands.js` 中对 `api.js` 的引用就是在函数体内延迟 require 的。
 * **群聊 @ 相关逻辑优先看 `listener.js` + `parser.js`**：`@专注回答模式`、回复引用提取、引用图片并入请求、引用来源日志都集中在这两处，不要只改提示词而忽略运行时注入链路。
+* **图像能力与聊天能力已经拆分**：聊天节点使用 `api_config.json`，图像节点使用 `image_api_config.json`。后续新增图像 provider 时，优先扩展图像节点体系，不要再把图像字段塞回聊天节点。
 
 ### 1. 全量脱离 YAML 的 JSON 配置树
 
@@ -55,7 +56,8 @@ lib/
 |------|------|----------|
 | `runtime_config.json` | 核心参数（主人QQ、阈值、开关等） | `config.js` |
 | `runtime_schema.json` | 运行时配置契约（字段 / 说明 / 约束 / 废弃信息） | GUI / `config.js` / 自检 |
-| `api_config.json` | 多节点 API 池 | `config.js` |
+| `api_config.json` | 聊天 / 文本 API 节点池 | `config.js` |
+| `image_api_config.json` | 独立图像 API 节点池（当前仅 xAI） | `config.js` / `commands.js` / `api.js` |
 | `group_personality.json` | 群聊人格库 | `config.js` |
 | `private_personality.json` | 私聊人格库 | `config.js` |
 | `group_usage_counts.json` | 群聊独立计数的动态数据 | `ratelimit.js` |
@@ -84,6 +86,19 @@ lib/
 
 收到请求后的动态状态提示逻辑目前位于 `listener.js`，队列容量与溢出保护逻辑位于 `queue.js`，如果你修改其中一侧，记得同步检查另一侧的提示文本和日志是否仍然一致。
 
+图像节点相关字段的现有做法可参考：
+
+* `runtime_config.json` 中的 `activeImageApiIndex`：控制当前默认图像节点
+* `image_api_config.json`：维护独立图像节点列表
+* `image_api_manager.html`：插件内自带的轻量图像节点管理工具
+
+如果你新增了图像 provider 或图像节点字段，请同时检查：
+
+1. `lib/config.js` 的默认值 / 迁移逻辑
+2. `lib/commands.js` 的图像命令与列表/搜索输出
+3. `image_api_manager.html` 的本地编辑逻辑
+4. GUI Manager 的 `imageApi` 配置映射与图像节点列表
+
 ### 2. 多模型原生协议适配器
 
 在 `lib/api.js` 的 `getAiReply` 方法中，我们针对不同的模型（OpenAI 兼容格式、OpenAI Responses API、Anthropic 原生格式、Gemini 原生格式）进行了**差异化发包**。
@@ -94,10 +109,15 @@ lib/
 
 | aiType | 请求头 | 请求体特点 |
 |--------|--------|------------|
-| `openai` | `Authorization: Bearer <key>` | 标准 `messages` 数组 |
-| `responses` | `Authorization: Bearer <key>` | `instructions` + `input`，支持 `input_text` / `input_image` |
+| `openai` | `Authorization: Bearer <key>` | 标准 `messages` 数组（GUI 中显示为 `openai (completions)`） |
+| `responses` | `Authorization: Bearer <key>` | `instructions` + `input`，支持 `input_text` / `input_image`（GUI 中显示为 `openai-response`） |
 | `anthropic` | `x-api-key` + `anthropic-version` | `system` 独立、`messages` 结构 |
 | `gemini` | `x-goog-api-key` | `contents`/`parts` 嵌套 + `systemInstruction` |
+
+补充约定：
+
+* `normalizeAiType()` 已兼容 `response` / `responses` / `openai-response` 三种写法。你在 GUI 或 JSON 里看到 `openai-response` 时，不要再额外开一套并行逻辑。
+* xAI Web Search 只在 `responses` 分支附加 `tools: [{ type: "web_search" }]`。如果你在别的协议分支里也想接工具，先确认目标接口的真实契约，不要直接复制 xAI 的写法。
 
 ### 3. 风控拦截与 Fallback 降级机制（暗坑警告）
 
@@ -202,6 +222,12 @@ if (aiType === 'anthropic') {
    - 响应解析（提取 AI 回复文本的路径）
 
 3. 在 `lib/api.js` 的连通性测试和 `lib/config.js` 的默认配置中同步支持新的 `aiType` 值。
+
+如果你改的是 Responses / xAI 兼容，而不是全新协议，也请顺手检查：
+
+1. `shouldUseXaiWebSearch()` 是否仍只在正确场景下返回 `true`
+2. `extractResponsesText()` 是否兼容新的响应块结构
+3. GUI Manager 的 `ApiManager.tsx` 下拉选项、URL 默认后缀提示和 `xaiWebSearchEnabled` 说明文案是否仍然一致
 
 ### 场景 3：新增一个运行时配置字段
 
