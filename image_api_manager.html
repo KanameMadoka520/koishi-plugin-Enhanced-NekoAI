@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NekoAI 图像节点管理器</title>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <style>
+    :root {
+      --bg: #f5f7fb;
+      --surface: #ffffff;
+      --surface-2: #f8fafc;
+      --text: #172033;
+      --muted: #64748b;
+      --border: #d8e1ee;
+      --primary: #4f46e5;
+      --primary-soft: rgba(79, 70, 229, 0.12);
+      --danger: #dc2626;
+      --success: #16a34a;
+      --warning: #d97706;
+      --shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
+      --radius: 18px;
+      --radius-sm: 12px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: radial-gradient(circle at top right, rgba(79,70,229,0.10), transparent 26%), var(--bg);
+      color: var(--text);
+    }
+    .app { max-width: 1240px; margin: 0 auto; padding: 28px 20px 48px; }
+    .hero {
+      background: linear-gradient(135deg, rgba(79,70,229,0.98), rgba(15,23,42,0.92));
+      color: #fff;
+      border-radius: 24px;
+      padding: 24px 26px;
+      box-shadow: var(--shadow);
+    }
+    .hero h1 { margin: 0; font-size: 28px; }
+    .hero p { margin: 10px 0 0; color: rgba(255,255,255,0.82); line-height: 1.6; }
+    .toolbar, .banner, .empty, .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+    .toolbar { margin-top: 18px; padding: 16px; }
+    .toolbar-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    .toolbar-note { margin-top: 12px; font-size: 12px; color: var(--muted); line-height: 1.6; }
+    .btn {
+      border: 1px solid var(--border);
+      background: var(--surface-2);
+      color: var(--text);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      cursor: pointer;
+      font-size: 13px;
+      transition: .18s ease;
+    }
+    .btn:hover { border-color: var(--primary); color: var(--primary); }
+    .btn.primary { background: var(--primary); color: #fff; border-color: transparent; }
+    .btn.primary:hover { opacity: .92; color: #fff; }
+    .btn.warn { color: var(--warning); }
+    .btn:disabled { opacity: .45; cursor: not-allowed; }
+    .search {
+      flex: 1;
+      min-width: 240px;
+      padding: 11px 14px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--surface);
+      color: var(--text);
+      outline: none;
+    }
+    .search:focus, .field input:focus, .field select:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(79,70,229,0.12);
+    }
+    .banner {
+      margin-top: 16px;
+      padding: 14px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .banner strong { display: block; margin-bottom: 4px; }
+    .banner small { color: var(--muted); }
+    .summary {
+      margin-top: 18px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+    }
+    .summary-item {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      box-shadow: var(--shadow);
+    }
+    .summary-item .label { font-size: 12px; color: var(--muted); }
+    .summary-item .value { margin-top: 8px; font-size: 18px; font-weight: 700; }
+    .list { margin-top: 18px; display: grid; gap: 14px; }
+    .empty { margin-top: 18px; padding: 34px 16px; text-align: center; color: var(--muted); }
+    .card { padding: 18px; }
+    .card-head {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+    .card-index { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--muted); font-size: 12px; }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      background: rgba(6,182,212,0.12);
+      color: #0f766e;
+    }
+    .badge.active { background: var(--primary); color: #fff; }
+    .card-title { font-size: 18px; font-weight: 700; }
+    .card-subtitle { font-size: 12px; color: var(--muted); }
+    .grid {
+      display: grid;
+      gap: 14px;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    }
+    .field label {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .field input, .field select {
+      width: 100%;
+      padding: 11px 12px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--surface);
+      color: var(--text);
+      outline: none;
+      font-size: 13px;
+      font-family: inherit;
+    }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .field-help {
+      margin-top: 6px;
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+    .field-row { display: flex; gap: 8px; }
+    .field-row .field-input { flex: 1; }
+    .actions {
+      margin-top: 16px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .actions .spacer { flex: 1; }
+    @media (max-width: 760px) {
+      .app { padding: 18px 14px 36px; }
+      .hero { padding: 20px 18px; }
+      .card { padding: 16px; }
+      .field-row { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <div id="app" class="app">
+    <section class="hero">
+      <h1>NekoAI 图像节点管理器</h1>
+      <p>单独维护 <span class="mono">image_api_config.json</span>。这里的节点只给 <span class="mono">neko.生图</span> / <span class="mono">neko.修图</span> / <span class="mono">neko.图像模型列表</span> 使用，不会混进聊天 API 列表。默认图像节点请用聊天指令 <span class="mono">neko.图像模型切换</span> 处理。</p>
+    </section>
+
+    <section class="toolbar">
+      <div class="toolbar-row">
+        <button class="btn primary" @click="openFile">选择本地 image_api_config.json</button>
+        <button class="btn" @click="saveFile" :disabled="!fileHandle || !isDirty">保存</button>
+        <button class="btn" @click="exportBackup">导出备份</button>
+        <button class="btn" @click="exportTemplate">下载 xAI 模板</button>
+        <button class="btn" @click="addNode">+ 新增图像节点</button>
+        <input class="search" v-model="search" placeholder="搜索备注 / 模型 / URL / provider..." />
+      </div>
+      <div class="toolbar-note">URL 仍由你手动填写，右侧按钮只负责补常见后缀。页面默认不提供图像测活按钮，避免直接消耗图像额度。</div>
+    </section>
+
+    <section class="banner" v-if="detectedFile">
+      <div>
+        <strong>检测到同目录图像配置</strong>
+        <small>{{ detectedFile.name }} 已发现，可以直接载入编辑。</small>
+      </div>
+      <button class="btn primary" @click="loadDetectedFile">载入</button>
+    </section>
+
+    <section class="summary">
+      <div class="summary-item">
+        <div class="label">图像节点总数</div>
+        <div class="value">{{ nodes.length }}</div>
+      </div>
+      <div class="summary-item">
+        <div class="label">当前搜索命中</div>
+        <div class="value">{{ filteredNodes.length }}</div>
+      </div>
+      <div class="summary-item">
+        <div class="label">文件状态</div>
+        <div class="value">{{ fileName || '未绑定文件' }}</div>
+      </div>
+      <div class="summary-item">
+        <div class="label">保存状态</div>
+        <div class="value">{{ isDirty ? '待保存' : '已同步' }}</div>
+      </div>
+    </section>
+
+    <section class="empty" v-if="filteredNodes.length === 0">
+      当前没有匹配的图像节点。可以先新增节点，或清空搜索词再看。
+    </section>
+
+    <section class="list" v-else>
+      <article class="card" v-for="(node, index) in filteredNodes" :key="node._id">
+        <div class="card-head">
+          <span class="card-index">#{{ node._index }}</span>
+          <span class="badge">xAI 图像</span>
+          <span class="card-title">{{ node.modelName || 'grok-imagine-image' }}</span>
+          <span class="card-subtitle">{{ node.remark || '还没写备注' }}</span>
+        </div>
+
+        <div class="grid">
+          <div class="field">
+            <label>Provider</label>
+            <select v-model="node.providerType" @change="markDirty()">
+              <option value="xai">xai</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>备注</label>
+            <input v-model="node.remark" @input="markDirty()" placeholder="写一个你自己看得懂的备注" />
+          </div>
+          <div class="field">
+            <label>图像模型</label>
+            <input class="mono" v-model="node.modelName" @input="markDirty()" placeholder="grok-imagine-image" />
+            <div class="field-help">xAI 官方常见图像模型：<span class="mono">grok-imagine-image</span>。</div>
+          </div>
+          <div class="field">
+            <label>默认宽高比</label>
+            <select v-model="node.aspectRatio" @change="markDirty()">
+              <option value="">默认比例</option>
+              <option value="auto">auto</option>
+              <option value="1:1">1:1</option>
+              <option value="16:9">16:9</option>
+              <option value="9:16">9:16</option>
+              <option value="4:3">4:3</option>
+              <option value="3:4">3:4</option>
+              <option value="3:2">3:2</option>
+              <option value="2:3">2:3</option>
+              <option value="2:1">2:1</option>
+              <option value="1:2">1:2</option>
+              <option value="19.5:9">19.5:9</option>
+              <option value="9:19.5">9:19.5</option>
+              <option value="20:9">20:9</option>
+              <option value="9:20">9:20</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>默认分辨率</label>
+            <select v-model="node.resolution" @change="markDirty()">
+              <option value="">默认清晰度</option>
+              <option value="1k">1k</option>
+              <option value="2k">2k</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>API Key</label>
+            <input class="mono" :type="visibleKeys.has(node._id) ? 'text' : 'password'" v-model="node.apiKey" @input="markDirty()" placeholder="xai-..." />
+          </div>
+          <div class="field" style="grid-column: 1 / -1;">
+            <label>生图 URL</label>
+            <div class="field-row">
+              <div class="field-input">
+                <input class="mono" v-model="node.generationUrl" @input="markDirty()" placeholder="先填基础地址，需要时点右侧按钮补常见后缀" />
+              </div>
+              <button class="btn" @click="appendGenerationSuffix(node)">补 /v1/images/generations</button>
+            </div>
+          </div>
+          <div class="field" style="grid-column: 1 / -1;">
+            <label>修图 URL</label>
+            <div class="field-row">
+              <div class="field-input">
+                <input class="mono" v-model="node.editUrl" @input="markDirty()" placeholder="先填基础地址，需要时点右侧按钮补常见后缀" />
+              </div>
+              <button class="btn" @click="appendEditSuffix(node)">补 /v1/images/edits</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button class="btn" @click="toggleKey(node._id)">{{ visibleKeys.has(node._id) ? '隐藏 Key' : '显示 Key' }}</button>
+          <button class="btn" @click="cloneNode(node._index)">克隆</button>
+          <div class="spacer"></div>
+          <button class="btn warn" @click="removeNode(node._index)">移除</button>
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <script>
+    const { createApp, ref, computed, reactive, onMounted } = Vue;
+
+    createApp({
+      setup() {
+        const nodes = ref([]);
+        const fileName = ref('');
+        const isDirty = ref(false);
+        const search = ref('');
+        const visibleKeys = reactive(new Set());
+        const detectedFile = ref(null);
+        let fileHandle = null;
+        let idCounter = 0;
+
+        const genId = () => `img_${++idCounter}_${Math.random().toString(36).slice(2, 8)}`;
+        const normalizeNode = (input = {}) => ({
+          _id: input._id || genId(),
+          _index: 0,
+          providerType: 'xai',
+          generationUrl: input.generationUrl || '',
+          editUrl: input.editUrl || '',
+          apiKey: input.apiKey || '',
+          modelName: input.modelName || 'grok-imagine-image',
+          remark: input.remark || '',
+          aspectRatio: input.aspectRatio || '',
+          resolution: input.resolution || '',
+        });
+        const withIndex = (list) => list.map((item, index) => ({ ...item, _index: index }));
+
+        const filteredNodes = computed(() => {
+          const q = search.value.trim().toLowerCase();
+          return withIndex(nodes.value).filter((node) => {
+            if (!q) return true;
+            return [
+              node.providerType,
+              node.modelName,
+              node.remark,
+              node.generationUrl,
+              node.editUrl,
+            ].some((item) => String(item || '').toLowerCase().includes(q));
+          });
+        });
+
+        const markDirty = () => { isDirty.value = true; };
+        const getPayload = () => nodes.value.map(({ providerType, generationUrl, editUrl, apiKey, modelName, remark, aspectRatio, resolution }) => ({
+          providerType, generationUrl, editUrl, apiKey, modelName, remark, aspectRatio, resolution,
+        }));
+
+        const appendKnownSuffix = (current, suffix, pattern, warnText) => {
+          const url = String(current || '').trim();
+          if (!url) return suffix;
+          if (pattern.test(url)) {
+            alert(warnText);
+            return url;
+          }
+          if (/[?#]/.test(url)) {
+            alert('当前 URL 含查询参数或锚点，请手动补后缀以避免拼错路径。');
+            return url;
+          }
+          return `${url.replace(/\/+$/, '')}${suffix}`;
+        };
+
+        const appendGenerationSuffix = (node) => {
+          const next = appendKnownSuffix(node.generationUrl, '/v1/images/generations', /\/v1\/images\/generations(?:[/?#]|$)/i, '当前 URL 已包含图像生成接口的常见默认后缀。');
+          if (next !== node.generationUrl) {
+            node.generationUrl = next;
+            markDirty();
+          }
+        };
+
+        const appendEditSuffix = (node) => {
+          const next = appendKnownSuffix(node.editUrl, '/v1/images/edits', /\/v1\/images\/edits(?:[/?#]|$)/i, '当前 URL 已包含图像编辑接口的常见默认后缀。');
+          if (next !== node.editUrl) {
+            node.editUrl = next;
+            markDirty();
+          }
+        };
+
+        const toggleKey = (id) => {
+          if (visibleKeys.has(id)) visibleKeys.delete(id);
+          else visibleKeys.add(id);
+        };
+
+        const addNode = () => {
+          nodes.value.push(normalizeNode({}));
+          markDirty();
+        };
+
+        const cloneNode = (index) => {
+          const source = nodes.value[index];
+          if (!source) return;
+          nodes.value.splice(index + 1, 0, normalizeNode({
+            ...source,
+            remark: `${source.remark || source.modelName} (副本)`,
+          }));
+          markDirty();
+        };
+
+        const removeNode = (index) => {
+          if (!confirm(`确定删除图像节点 #${index}？`)) return;
+          const removed = nodes.value.splice(index, 1)[0];
+          if (removed) visibleKeys.delete(removed._id);
+          markDirty();
+        };
+
+        const loadFromText = (text, name) => {
+          let data = [];
+          try { data = JSON.parse(text); } catch (e) { data = []; }
+          nodes.value = Array.isArray(data) ? data.map((item) => normalizeNode(item)) : [];
+          fileName.value = name || '';
+          isDirty.value = false;
+        };
+
+        const openFile = async () => {
+          try {
+            [fileHandle] = await window.showOpenFilePicker({
+              types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }],
+              multiple: false,
+            });
+            const file = await fileHandle.getFile();
+            loadFromText(await file.text(), file.name);
+          } catch (e) {}
+        };
+
+        const saveFile = async () => {
+          if (!fileHandle) {
+            alert('请先选择本地 image_api_config.json 再保存。');
+            return;
+          }
+          try {
+            const writer = await fileHandle.createWritable();
+            await writer.write(JSON.stringify(getPayload(), null, 2));
+            await writer.close();
+            isDirty.value = false;
+            alert('保存成功。');
+          } catch (e) {
+            alert(`保存失败：${e.message || e}`);
+          }
+        };
+
+        const exportBackup = () => {
+          const blob = new Blob([JSON.stringify(getPayload(), null, 2)], { type: 'application/json' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `image_api_config.backup.${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+          a.click();
+          URL.revokeObjectURL(url);
+        };
+
+        const exportTemplate = () => {
+          const template = [
+            {
+              providerType: 'xai',
+              generationUrl: 'https://api.x.ai/v1/images/generations',
+              editUrl: 'https://api.x.ai/v1/images/edits',
+              apiKey: 'xai-your-key',
+              modelName: 'grok-imagine-image',
+              remark: 'xAI 官方图像模板',
+              aspectRatio: '',
+              resolution: '',
+            }
+          ];
+          const blob = new Blob([JSON.stringify(template, null, 2)], { type: 'application/json' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'image_api_config.template.json';
+          a.click();
+          URL.revokeObjectURL(url);
+        };
+
+        const loadDetectedFile = () => {
+          if (!detectedFile.value) return;
+          loadFromText(detectedFile.value.text, detectedFile.value.name);
+          detectedFile.value = null;
+          fileHandle = null;
+        };
+
+        onMounted(async () => {
+          try {
+            const resp = await fetch('./image_api_config.json', { method: 'GET', cache: 'no-cache' });
+            if (resp.ok) {
+              const text = await resp.text();
+              JSON.parse(text);
+              detectedFile.value = { name: 'image_api_config.json', text };
+            }
+          } catch (e) {}
+        });
+
+        return {
+          nodes,
+          fileName,
+          isDirty,
+          search,
+          visibleKeys,
+          filteredNodes,
+          detectedFile,
+          markDirty,
+          appendGenerationSuffix,
+          appendEditSuffix,
+          toggleKey,
+          addNode,
+          cloneNode,
+          removeNode,
+          openFile,
+          saveFile,
+          exportBackup,
+          exportTemplate,
+          loadDetectedFile,
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>
