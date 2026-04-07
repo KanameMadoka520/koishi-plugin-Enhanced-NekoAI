@@ -433,6 +433,40 @@
 
             <div class="field-row">
               <div class="field-label">
+                <div class="field-label-name">imageAccess.mode</div>
+                <div class="field-label-desc">图像权限模式。blacklist=只要是群友且不在黑名单里就可生图/修图；whitelist=只有图像白名单里的QQ可生图/修图。黑名单始终优先。</div>
+              </div>
+              <div class="field-control">
+                <select v-model="cfg.imageAccess.mode" @change="markDirty">
+                  <option value="blacklist">blacklist / 黑名单模式</option>
+                  <option value="whitelist">whitelist / 白名单模式</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="field-row">
+              <div class="field-label">
+                <div class="field-label-name">imageAccess.whitelistUsers</div>
+                <div class="field-label-desc">图像白名单。仅在 whitelist 模式生效；这里只有手动加入的QQ才可生图/修图。</div>
+              </div>
+              <div class="field-control">
+                <div class="tag-list">
+                  <span class="tag" v-for="(u, i) in cfg.imageAccess.whitelistUsers" :key="'iwl'+i" style="border-color: var(--warning); color: var(--warning); background: rgba(255,171,64,0.12);">
+                    {{ u }} <span class="tag-remove" @click="removeFromArray(cfg.imageAccess.whitelistUsers, i)">&times;</span>
+                  </span>
+                </div>
+                <div class="tag-add-row">
+                  <input type="text" v-model="inputs.imageWhitelistUsers" placeholder="输入QQ号" @keyup.enter="addToArray(cfg.imageAccess.whitelistUsers, 'imageWhitelistUsers')">
+                  <button class="btn btn-sm" @click="addToArray(cfg.imageAccess.whitelistUsers, 'imageWhitelistUsers')">添加</button>
+                </div>
+                <div v-if="imageAccessConflicts.length" style="margin-top:8px; padding:10px 12px; border-radius:12px; border:1px solid rgba(239,68,68,0.28); background:rgba(239,68,68,0.08); color:var(--danger); font-size:12px; line-height:1.6;">
+                  检测到冲突：以下QQ同时出现在用户黑名单和图像白名单中：{{ imageAccessConflicts.join('、') }}。实际运行时黑名单优先，这些人仍然无法生图和修图。
+                </div>
+              </div>
+            </div>
+
+            <div class="field-row">
+              <div class="field-label">
                 <div class="field-label-name">groupLimits</div>
                 <div class="field-label-desc">群聊12小时调用次数限制<br>格式：{ 群号: 限制次数 }</div>
               </div>
@@ -942,7 +976,7 @@
         let toastTimer = null;
 
         const inputs = reactive({
-          masterQQ: '', groups: '', allowPrivateTalkingUsers: '', userBlacklist: '',
+          masterQQ: '', groups: '', allowPrivateTalkingUsers: '', userBlacklist: '', imageWhitelistUsers: '',
           groupLimitKey: '', groupLimitVal: 100,
           gpmKey: '', gpmVal: 0,
           gamKey: '', gamVal: 0,
@@ -954,6 +988,7 @@
           masterQQ: [], nickName: 'Neko', privateRefuse: '', logLevel: 'debug',
           activeApiIndex: 0, activeGroupPersonalityIndex: 0, activePrivatePersonalityIndex: 0,
           groups: [], allowPrivateTalkingUsers: [], userBlacklist: [], groupLimits: {},
+          imageAccess: { mode: 'blacklist', whitelistUsers: [] },
           maxGroupMessages: 20, singleMaxMessages: 40,
           randomReply: 0.3, messagesLength: 15, sleepTime: 1000,
           singleAskSleep: 1000, singleTalkWaiting: 500,
@@ -968,6 +1003,10 @@
         };
 
         const cfg = reactive(JSON.parse(JSON.stringify(defaultCfg)));
+        const imageAccessConflicts = computed(() => {
+          const blacklist = new Set((cfg.userBlacklist || []).map(v => String(v || '').trim()).filter(Boolean));
+          return [...new Set((cfg.imageAccess?.whitelistUsers || []).map(v => String(v || '').trim()).filter(v => blacklist.has(v)))];
+        });
 
         const sections = computed(() => [
           { id: 'sec-core', icon: '\u{1F3E0}', label: '核心设置' },
@@ -1044,6 +1083,8 @@
           cfg.groups = Array.isArray(raw.groups) ? [...raw.groups] : [];
           cfg.allowPrivateTalkingUsers = Array.isArray(raw.allowPrivateTalkingUsers) ? [...raw.allowPrivateTalkingUsers] : [];
           cfg.userBlacklist = Array.isArray(raw.userBlacklist) ? [...raw.userBlacklist] : [];
+          cfg.imageAccess.mode = raw.imageAccess?.mode === 'whitelist' ? 'whitelist' : 'blacklist';
+          cfg.imageAccess.whitelistUsers = Array.isArray(raw.imageAccess?.whitelistUsers) ? [...new Set(raw.imageAccess.whitelistUsers.map(v => String(v || '').trim()).filter(Boolean))] : [];
           // Objects
           cfg.groupLimits = raw.groupLimits && typeof raw.groupLimits === 'object' ? {...raw.groupLimits} : {};
           cfg.groupPersonalityMap = raw.groupPersonalityMap && typeof raw.groupPersonalityMap === 'object' ? {...raw.groupPersonalityMap} : {};
@@ -1102,6 +1143,7 @@
             groupLimits: "群聊12小时回复限制 { 群号: 次数 }",
             logLevel: "日志级别: debug/info/warn/error",
             userBlacklist: "用户黑名单",
+            imageAccess: "图像权限配置：控制生图/修图的权限模式与图像白名单",
             groupPersonalityMap: "按群独立人格绑定 { 群号: 编号 }",
             groupApiMap: "按群独立模型绑定 { 群号: 编号 }",
             groupMentionWait: "群聊@合并等待(ms)，0=不等待",
@@ -1137,6 +1179,10 @@
           out.groupLimits = {...cfg.groupLimits};
           out.logLevel = cfg.logLevel;
           out.userBlacklist = [...cfg.userBlacklist];
+          out.imageAccess = {
+            mode: cfg.imageAccess.mode === 'whitelist' ? 'whitelist' : 'blacklist',
+            whitelistUsers: [...new Set((cfg.imageAccess.whitelistUsers || []).map(v => String(v || '').trim()).filter(Boolean))]
+          };
           out.groupPersonalityMap = {...cfg.groupPersonalityMap};
           out.groupApiMap = {...cfg.groupApiMap};
           out.groupMentionWait = cfg.groupMentionWait;
@@ -1316,7 +1362,7 @@
 
         return {
           isLoaded, isDirty, darkMode, showShortcuts, showDropZone, fileInput, activeSection,
-          toast, inputs, cfg, sections, detectedFile, loadDetectedFile,
+          toast, inputs, cfg, sections, detectedFile, loadDetectedFile, imageAccessConflicts,
           showToast, markDirty, scrollTo, toggleTheme, loadFile, onFileSelected, saveFile,
           addToArray, removeFromArray, updateMap, removeMapKey, addMapEntry, addExcludeIndex, resetAll
         };

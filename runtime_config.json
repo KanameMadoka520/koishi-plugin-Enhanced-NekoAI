@@ -33,6 +33,7 @@
     "groupMentionWait": "群聊@合并等待时间(ms)，0=不等待立即响应",
     "groupMentionFocusMode": "群聊@专注回答模式：被@时以本轮消息为主问题，上下文仅供参考，默认开启",
     "contextAutoForgetMs": "上下文闲置自动清空时间(ms)，0=关闭自动清空",
+    "imageAccess": "图像权限配置：控制生图/修图的权限模式与图像白名单",
     "imageQuota": "图像限额配置：控制生图/修图默认额度，以及指定QQ的单独额度",
     "apiTimeoutMs": "调用下游 API 的超时时间(ms)",
     "sendProcessingNotice": "收到请求后是否先发送“处理中”提示",
@@ -89,6 +90,10 @@
   "groupMentionWait": 0,
   "groupMentionFocusMode": true,
   "contextAutoForgetMs": 600000,
+  "imageAccess": {
+    "mode": "blacklist",
+    "whitelistUsers": []
+  },
   "imageQuota": {
     "enabled": false,
     "defaultGenerateLimit": 0,

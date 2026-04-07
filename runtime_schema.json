@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "plugin": "nekoai",
   "sections": [
     {
@@ -19,9 +19,9 @@
     {
       "id": "groups",
       "title": "群聊与用户",
-      "summary": "监听群组、白名单、黑名单与群限流。",
+      "summary": "监听群组、私聊白名单、用户黑名单、图像权限模式与群限流。",
       "mode": "both",
-      "fields": ["groups", "allowPrivateTalkingUsers", "userBlacklist", "groupLimits"]
+      "fields": ["groups", "allowPrivateTalkingUsers", "userBlacklist", "imageAccess.mode", "imageAccess.whitelistUsers", "groupLimits"]
     },
     {
       "id": "messages",
@@ -205,6 +205,21 @@
       "title": "用户黑名单",
       "type": "string[]",
       "description": "完全屏蔽的用户 ID 列表。",
+      "default": [],
+      "ui": "tags",
+      "placeholder": "输入 QQ 号后回车"
+    },
+    "imageAccess.mode": {
+      "title": "图像权限模式",
+      "type": "enum",
+      "description": "blacklist=黑名单模式，群友默认可用；whitelist=白名单模式，只有手动加入图像白名单的 QQ 可用。用户黑名单始终优先。",
+      "default": "blacklist",
+      "enum": ["blacklist", "whitelist"]
+    },
+    "imageAccess.whitelistUsers": {
+      "title": "图像白名单",
+      "type": "string[]",
+      "description": "仅在 whitelist 模式下生效。只有这里手动填写的 QQ 才能使用生图和修图。",
       "default": [],
       "ui": "tags",
       "placeholder": "输入 QQ 号后回车"
