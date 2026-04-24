@@ -26,7 +26,7 @@ lib/
 ├── utils.js        ← 通用工具函数（权限检查、群友名单、周期计算等）
 ├── parser.js       ← 消息内容解析（Base64 图片提取、外部链接嗅探、回复引用兼容解析）
 ├── sender.js       ← 消息发送（拟人分段、合并转发、Fallback 降级、表情包）
-├── api.js          ← AI API 调用（文本协议适配、智能路由、xAI / OpenAI 图像生成编辑）
+├── api.js          ← AI API 调用（文本协议适配、智能路由、xAI 图像生成编辑 / OpenAI 生图）
 ├── queue.js        ← 请求队列（FIFO 并发控制）
 ├── ratelimit.js    ← 群聊限流（12小时周期计数、阶梯预警）
 ├── history.js      ← 聊天历史日志持久化（按日期/时段滚动生成）
@@ -91,6 +91,7 @@ lib/
 * `runtime_config.json` 中的 `activeImageApiIndex`：控制当前默认图像节点
 * `image_api_config.json`：维护独立图像节点列表
 * `image_api_manager.html`：插件内自带的轻量图像节点管理工具
+* `supportsEdit`：图像节点能力标记。xAI 默认支持生图+修图；OpenAI `gpt-image-2` 默认仅生图，修图命令会跳过该节点。
 
 如果你新增了图像 provider 或图像节点字段，请同时检查：
 

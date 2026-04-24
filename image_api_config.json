@@ -7,16 +7,18 @@
     "modelName": "grok-imagine-image",
     "remark": "xAI 官方图像示例",
     "aspectRatio": "",
-    "resolution": ""
+    "resolution": "",
+    "supportsEdit": true
   },
   {
     "providerType": "openai",
     "generationUrl": "https://api.openai.com/v1/images/generations",
-    "editUrl": "https://api.openai.com/v1/images/edits",
+    "editUrl": "",
     "apiKey": "sk-your-openai-key",
     "modelName": "gpt-image-2",
-    "remark": "OpenAI 图像示例",
+    "remark": "OpenAI 生图示例",
     "aspectRatio": "",
-    "resolution": ""
+    "resolution": "",
+    "supportsEdit": false
   }
 ]
