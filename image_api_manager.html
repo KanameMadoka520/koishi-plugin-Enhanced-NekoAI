@@ -245,11 +245,11 @@
           </div>
           <div class="field">
             <label>节点能力</label>
-            <select v-model="node.supportsEdit" @change="onSupportsEditChange(node)" :disabled="isGenerationOnlyOpenAiNode(node)">
+            <select v-model="node.supportsEdit" @change="onSupportsEditChange(node)">
               <option :value="false">仅生图</option>
               <option :value="true">生图 + 修图</option>
             </select>
-            <div class="field-help" v-if="isGenerationOnlyOpenAiNode(node)">gpt-image-2 图像节点仅支持生图，修图命令会自动跳过这个节点。</div>
+            <div class="field-help" v-if="isGptImage2Node(node)">gpt-image-2 支持直接引用带图消息进行参考图生图；开启修图能力并填写修图 URL 后，<span class="mono">neko.生图 提示词</span> 会自动使用引用图作为参考。</div>
             <div class="field-help" v-else>只有支持修图的节点才会被 <span class="mono">neko.修图</span> 选中。</div>
           </div>
           <div class="field">
@@ -259,7 +259,7 @@
           <div class="field">
             <label>图像模型</label>
             <input class="mono" v-model="node.modelName" @input="onModelInput(node)" :placeholder="defaultModel(node.providerType)" />
-            <div class="field-help" v-if="node.providerType === 'openai'">OpenAI 图像渠道默认模型：<span class="mono">gpt-image-2</span>。该模型当前按“仅生图”处理，不会用于修图。</div>
+            <div class="field-help" v-if="node.providerType === 'openai'">OpenAI 图像渠道默认模型：<span class="mono">gpt-image-2</span>。检测到该模型时，建议保留修图 URL，用于引用图片后的参考图生图。</div>
             <div class="field-help" v-else>xAI 官方常见图像模型：<span class="mono">grok-imagine-image</span>。</div>
           </div>
           <div class="field">
@@ -349,8 +349,8 @@
         };
         const defaultModel = (providerType = 'xai') => normalizeProvider(providerType) === 'openai' ? 'gpt-image-2' : 'grok-imagine-image';
         const defaultGenerationUrl = (providerType = 'xai') => normalizeProvider(providerType) === 'openai' ? 'https://api.openai.com/v1/images/generations' : 'https://api.x.ai/v1/images/generations';
-        const defaultEditUrl = (providerType = 'xai') => normalizeProvider(providerType) === 'openai' ? '' : 'https://api.x.ai/v1/images/edits';
-        const defaultSupportsEdit = (providerType = 'xai') => normalizeProvider(providerType) === 'xai';
+        const defaultEditUrl = (providerType = 'xai') => normalizeProvider(providerType) === 'openai' ? 'https://api.openai.com/v1/images/edits' : 'https://api.x.ai/v1/images/edits';
+        const defaultSupportsEdit = () => true;
         const providerLabel = (providerType = 'xai') => normalizeProvider(providerType) === 'openai' ? 'OpenAI 图像' : 'xAI 图像';
         const parseBoolean = (value, fallback = false) => {
           if (typeof value === 'boolean') return value;
@@ -361,23 +361,18 @@
           }
           return fallback;
         };
-        const isGenerationOnlyOpenAiNode = (node = {}) => {
+        const isGptImage2Node = (node = {}) => {
           const providerType = normalizeProvider(node.providerType);
           const modelName = String(node.modelName || defaultModel(providerType)).trim().toLowerCase();
           return providerType === 'openai' && modelName === 'gpt-image-2';
         };
         const nodeSupportsEdit = (node = {}) => {
-          if (isGenerationOnlyOpenAiNode(node)) return false;
           return parseBoolean(node.supportsEdit, defaultSupportsEdit(node.providerType));
         };
         const capabilityLabel = (node = {}) => nodeSupportsEdit(node) ? '生图 + 修图' : '仅生图';
         const normalizeNode = (input = {}) => {
           const providerType = normalizeProvider(input.providerType);
           const modelName = input.modelName || defaultModel(providerType);
-          const base = {
-            providerType,
-            modelName,
-          };
           return ({
           _id: input._id || genId(),
           _index: 0,
@@ -389,7 +384,7 @@
           remark: input.remark || '',
           aspectRatio: input.aspectRatio || '',
           resolution: input.resolution || '',
-          supportsEdit: isGenerationOnlyOpenAiNode(base) ? false : parseBoolean(input.supportsEdit, defaultSupportsEdit(providerType)),
+          supportsEdit: parseBoolean(input.supportsEdit, defaultSupportsEdit(providerType)),
           });
         };
         const withIndex = (list) => list.map((item, index) => ({ ...item, _index: index }));
@@ -464,19 +459,18 @@
           node.providerType = normalizeProvider(node.providerType);
           if (!node.modelName) node.modelName = defaultModel(node.providerType);
           node.supportsEdit = defaultSupportsEdit(node.providerType);
-          if (isGenerationOnlyOpenAiNode(node)) node.supportsEdit = false;
           if (!node.generationUrl) node.generationUrl = defaultGenerationUrl(node.providerType);
           if (nodeSupportsEdit(node) && !node.editUrl) node.editUrl = defaultEditUrl(node.providerType);
           markDirty();
         };
 
         const onModelInput = (node) => {
-          if (isGenerationOnlyOpenAiNode(node)) node.supportsEdit = false;
+          if (isGptImage2Node(node) && node.supportsEdit === false) node.supportsEdit = true;
+          if (nodeSupportsEdit(node) && !node.editUrl) node.editUrl = defaultEditUrl(node.providerType);
           markDirty();
         };
 
         const onSupportsEditChange = (node) => {
-          if (isGenerationOnlyOpenAiNode(node)) node.supportsEdit = false;
           if (nodeSupportsEdit(node) && !node.editUrl) node.editUrl = defaultEditUrl(node.providerType);
           markDirty();
         };
@@ -572,13 +566,13 @@
             {
               providerType: 'openai',
               generationUrl: 'https://api.openai.com/v1/images/generations',
-              editUrl: '',
+              editUrl: 'https://api.openai.com/v1/images/edits',
               apiKey: 'sk-your-openai-key',
               modelName: 'gpt-image-2',
-              remark: 'OpenAI 生图模板',
+              remark: 'OpenAI 图像模板',
               aspectRatio: '',
               resolution: '',
-              supportsEdit: false,
+              supportsEdit: true,
             }
           ];
           const blob = new Blob([JSON.stringify(template, null, 2)], { type: 'application/json' });
@@ -623,7 +617,7 @@
           providerLabel,
           capabilityLabel,
           nodeSupportsEdit,
-          isGenerationOnlyOpenAiNode,
+          isGptImage2Node,
           onProviderChange,
           onModelInput,
           onSupportsEditChange,

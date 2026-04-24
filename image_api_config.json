@@ -13,12 +13,12 @@
   {
     "providerType": "openai",
     "generationUrl": "https://api.openai.com/v1/images/generations",
-    "editUrl": "",
+    "editUrl": "https://api.openai.com/v1/images/edits",
     "apiKey": "sk-your-openai-key",
     "modelName": "gpt-image-2",
-    "remark": "OpenAI 生图示例",
+    "remark": "OpenAI 图像示例",
     "aspectRatio": "",
     "resolution": "",
-    "supportsEdit": false
+    "supportsEdit": true
   }
 ]

@@ -10,7 +10,7 @@
 
 ### 2026年4月 图像节点 / Responses / xAI / OpenAI 图像增量更新
 
-这一轮更新主要补齐了 **OpenAI Responses API、xAI Web Search、xAI 图像生成/编辑与 OpenAI gpt-image-2 生图** 能力，并把“聊天模型节点”和“图像模型节点”彻底拆开，避免配置和路由互相污染。
+这一轮更新主要补齐了 **OpenAI Responses API、xAI Web Search、xAI 图像生成/编辑与 OpenAI gpt-image-2 参考图生图** 能力，并把“聊天模型节点”和“图像模型节点”彻底拆开，避免配置和路由互相污染。
 
 #### 本轮重点
 
@@ -18,8 +18,8 @@
 * **xAI Web Search（仅 Responses）**：在 `openai-response` 节点上新增可选的 xAI Web Search 开关，仅在开启时向 Responses 请求体附加 `tools: [{ type: "web_search" }]`，适合 xAI 官方 API + Grok 模型场景。
 * **MiniMax Anthropic 兼容修复**：兼容 Anthropic 风格返回中 `thinking` 与 `text` 分块共存的情况，不再因只读 `content[0].text` 导致 `replace` 空指针异常。
 * **独立图像节点池**：新增 `image_api_config.json`，图像生成 / 图像编辑节点独立于 `api_config.json` 管理。聊天节点继续只负责文本 / 多模态对话，图像节点只负责 `neko.生图` / `neko.修图`。
-* **xAI 图像生成/编辑与 OpenAI 生图**：新增 `neko.生图`、`neko.画图`、`neko.修图`、`neko.图像模型列表`、`neko.图像模型搜索`、`neko.图像模型切换` 指令。OpenAI 图像节点默认模型为 `gpt-image-2`，按“仅生图”节点处理。
-* **图像输入输出链路优化**：修图命令会优先复用当前消息或引用消息中的图片，并尽量转成 `data:image/...;base64,...` 传给图像接口；输出优先读取 `b64_json`，必要时回退为 URL 下载后再转发给 QQ。`gpt-image-2` 节点不会参与 `neko.修图` 的节点选择。
+* **xAI / OpenAI 图像生成与参考图生图**：新增 `neko.生图`、`neko.画图`、`neko.修图`、`neko.图像模型列表`、`neko.图像模型搜索`、`neko.图像模型切换` 指令。OpenAI 图像节点默认模型为 `gpt-image-2`，在 `supportsEdit: true` 且配置 `editUrl` 时可接收引用图片。
+* **图像输入输出链路优化**：修图命令会优先复用当前消息或引用消息中的图片，并尽量转成 `data:image/...;base64,...` 传给图像接口；`neko.生图` 在检测到当前图像节点支持编辑且消息里有图片时，会把图片作为参考图传入。输出优先读取 `b64_json`，必要时回退为 URL 下载后再转发给 QQ。
 * **图像命令可选参数**：
   - `neko.生图`：支持 `--count` / `--ratio` / `--resolution` / `--model` / `--node`
   - `neko.修图`：支持 `--ratio` / `--resolution` / `--model` / `--node`
@@ -150,7 +150,7 @@
 * **原生底层请求适配**：内置原生支持 **OpenAI Chat Completions、OpenAI Responses API、Anthropic (Claude) 以及 Gemini** 四类文本/多模态接口请求格式。插件会在发包前，根据你配置的格式标签（`aiType`），在底层动态重组请求体（如 Responses 的 `instructions + input`、Anthropic 的 `messages` 结构与 `max_tokens` 强校验，或 Gemini 的 `contents` 与 `parts` 嵌套格式）。彻底拒绝因中转站格式转换不佳导致的兼容性报错。
 * **xAI Web Search（Responses 专属）**：当节点类型为 `openai-response` 且显式开启 xAI Web Search 时，插件会为请求附加 `tools: [{ type: "web_search" }]`。该能力默认关闭，只建议在 xAI 官方 API + Grok 模型场景下使用。
 * **独立图像节点池**：图像生成 / 图像编辑已从聊天节点中拆出，使用单独的 `image_api_config.json` 管理，不再混入 `api_config.json`，避免聊天路由与图像路由互相影响。
-* **xAI 图像生成/编辑与 OpenAI 生图**：支持 `POST /v1/images/generations`，xAI 节点还支持 `POST /v1/images/edits` 修图端点。OpenAI 图像节点默认模型为 `gpt-image-2`，按“仅生图”节点处理。图像命令优先使用 `image_api_config.json` 中的活跃图像节点，而不是聊天节点。
+* **xAI / OpenAI 图像生成与参考图生图**：支持 `POST /v1/images/generations`，支持编辑能力的节点还会通过 `POST /v1/images/edits` 处理修图或参考图输入。OpenAI 图像节点默认模型为 `gpt-image-2`，配置 `supportsEdit: true` 与 `editUrl` 后可接收引用图片。图像命令优先使用 `image_api_config.json` 中的活跃图像节点，而不是聊天节点。
 * **独立双轨人格**：支持分别为群聊和私聊建立独立的 Prompt 人格库，并在对话中一键无缝热切换。
 
 
@@ -245,7 +245,7 @@ plugins:
 
 * 专门给 `neko.生图` / `neko.修图` / `neko.图像模型列表` / `neko.图像模型搜索` / `neko.图像模型切换` 使用。
 * 每个节点包含 `providerType`, `generationUrl`, `editUrl`, `apiKey`, `modelName`, `remark`, `aspectRatio`, `resolution`, `supportsEdit`。
-* 当前内置 `xai` 与 `openai` 两类图像 provider；xAI 默认 `supportsEdit: true`，OpenAI `gpt-image-2` 默认 `supportsEdit: false`，即仅用于生图。
+* 当前内置 `xai` 与 `openai` 两类图像 provider；xAI 默认 `supportsEdit: true`，OpenAI `gpt-image-2` 默认 `supportsEdit: true`。如需让某个节点只做文生图，可以显式设置 `supportsEdit: false`。
 
 5. **`group_personality.json` & `private_personality.json` (独立人格库)**
 
@@ -402,7 +402,7 @@ plugins:
 * `neko.图像模型列表 [页码]`：查看 `image_api_config.json` 里的独立图像节点列表。
 * `neko.图像模型搜索 <关键词> [页码]`：按备注 / 模型名 / 生成 URL / 修图 URL 搜索图像节点。
 * `neko.图像模型切换 <编号>`：切换当前默认图像节点，对应 `runtime_config.json` 的 `activeImageApiIndex`。
-* `neko.生图 <提示词>`：调用图像生成节点。支持 `--count`、`--ratio`、`--resolution`、`--model`、`--node`。
+* `neko.生图 <提示词>`：调用图像生成节点。支持 `--count`、`--ratio`、`--resolution`、`--model`、`--node`；当当前节点支持编辑且当前/引用消息带图时，会把图片作为参考图一起传入。
 * `neko.画图 <提示词>`：`neko.生图` 的别名。
 * `neko.修图 <提示词>`：调用图像编辑节点。会优先复用当前消息或引用消息里的图片，支持 `--ratio`、`--resolution`、`--model`、`--node`。
 
@@ -410,12 +410,13 @@ plugins:
 
 * `neko.图像模型搜索 grok`
 * `neko.生图 赛博朋克夜雨中的猫娘 --count 2 --ratio 16:9 --resolution 2k`
+* 引用一条带图消息后发送：`neko.生图 按这张图的角色画成水彩插画`
 * `neko.修图 给她加一顶黑色贝雷帽 --ratio 1:1`
 
 补充说明：
 
 * 图像节点和聊天节点完全分离。`neko.模型列表` 不会显示生图/修图节点，图像相关请使用 `neko.图像模型列表`。
-* 当前内置的图像 provider 包括 `xai` 与 `openai`，两者都推荐使用 `generationUrl = /v1/images/generations`；xAI 节点默认支持修图，OpenAI `gpt-image-2` 节点默认仅生图，不会被 `neko.修图` 选中。
+* 当前内置的图像 provider 包括 `xai` 与 `openai`，两者都推荐使用 `generationUrl = /v1/images/generations`；支持编辑的节点还应配置 `editUrl = /v1/images/edits`。OpenAI `gpt-image-2` 节点可在 `supportsEdit: true` 时处理引用图，用户可直接引用带图消息后发送 `neko.生图 提示词` 做参考图生图。
 * 输出链路会优先读取 `b64_json` 直接回传到 QQ；如果下游只返回 URL，插件会自动下载后再发送；如果 OpenAI Compatible 返回 Markdown 形式的 data URI 图片，也会自动提取发送。
 
 #### 独立人格管理指令（⚠️ 仅限主人可用）

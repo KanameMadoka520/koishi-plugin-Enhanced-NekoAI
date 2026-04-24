@@ -91,7 +91,7 @@ lib/
 * `runtime_config.json` 中的 `activeImageApiIndex`：控制当前默认图像节点
 * `image_api_config.json`：维护独立图像节点列表
 * `image_api_manager.html`：插件内自带的轻量图像节点管理工具
-* `supportsEdit`：图像节点能力标记。xAI 默认支持生图+修图；OpenAI `gpt-image-2` 默认仅生图，修图命令会跳过该节点。
+* `supportsEdit`：图像节点能力标记。xAI 与 OpenAI `gpt-image-2` 默认支持生图+修图；当 `supportsEdit: true` 且 `editUrl` 已配置时，`neko.生图` 可把当前/引用消息图片作为参考图传入。
 
 如果你新增了图像 provider 或图像节点字段，请同时检查：
 
