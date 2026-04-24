@@ -26,7 +26,7 @@ lib/
 ├── utils.js        ← 通用工具函数（权限检查、群友名单、周期计算等）
 ├── parser.js       ← 消息内容解析（Base64 图片提取、外部链接嗅探、回复引用兼容解析）
 ├── sender.js       ← 消息发送（拟人分段、合并转发、Fallback 降级、表情包）
-├── api.js          ← AI API 调用（文本协议适配、智能路由、xAI 图像生成/编辑）
+├── api.js          ← AI API 调用（文本协议适配、智能路由、xAI / OpenAI 图像生成编辑）
 ├── queue.js        ← 请求队列（FIFO 并发控制）
 ├── ratelimit.js    ← 群聊限流（12小时周期计数、阶梯预警）
 ├── history.js      ← 聊天历史日志持久化（按日期/时段滚动生成）
@@ -57,7 +57,7 @@ lib/
 | `runtime_config.json` | 核心参数（主人QQ、阈值、开关等） | `config.js` |
 | `runtime_schema.json` | 运行时配置契约（字段 / 说明 / 约束 / 废弃信息） | GUI / `config.js` / 自检 |
 | `api_config.json` | 聊天 / 文本 API 节点池 | `config.js` |
-| `image_api_config.json` | 独立图像 API 节点池（当前仅 xAI） | `config.js` / `commands.js` / `api.js` |
+| `image_api_config.json` | 独立图像 API 节点池（xAI / OpenAI） | `config.js` / `commands.js` / `api.js` |
 | `group_personality.json` | 群聊人格库 | `config.js` |
 | `private_personality.json` | 私聊人格库 | `config.js` |
 | `group_usage_counts.json` | 群聊独立计数的动态数据 | `ratelimit.js` |

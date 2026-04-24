@@ -8,5 +8,15 @@
     "remark": "xAI 官方图像示例",
     "aspectRatio": "",
     "resolution": ""
+  },
+  {
+    "providerType": "openai",
+    "generationUrl": "https://api.openai.com/v1/images/generations",
+    "editUrl": "https://api.openai.com/v1/images/edits",
+    "apiKey": "sk-your-openai-key",
+    "modelName": "gpt-image-2",
+    "remark": "OpenAI 图像示例",
+    "aspectRatio": "",
+    "resolution": ""
   }
 ]

@@ -8,9 +8,9 @@
 
 ---
 
-### 2026年4月 图像节点 / Responses / xAI 增量更新
+### 2026年4月 图像节点 / Responses / xAI / OpenAI 图像增量更新
 
-这一轮更新主要补齐了 **OpenAI Responses API、xAI Web Search 与 xAI 图像生成/编辑** 三块能力，并把“聊天模型节点”和“图像模型节点”彻底拆开，避免配置和路由互相污染。
+这一轮更新主要补齐了 **OpenAI Responses API、xAI Web Search、xAI 图像生成/编辑与 OpenAI 图像生成/编辑** 能力，并把“聊天模型节点”和“图像模型节点”彻底拆开，避免配置和路由互相污染。
 
 #### 本轮重点
 
@@ -18,8 +18,8 @@
 * **xAI Web Search（仅 Responses）**：在 `openai-response` 节点上新增可选的 xAI Web Search 开关，仅在开启时向 Responses 请求体附加 `tools: [{ type: "web_search" }]`，适合 xAI 官方 API + Grok 模型场景。
 * **MiniMax Anthropic 兼容修复**：兼容 Anthropic 风格返回中 `thinking` 与 `text` 分块共存的情况，不再因只读 `content[0].text` 导致 `replace` 空指针异常。
 * **独立图像节点池**：新增 `image_api_config.json`，图像生成 / 图像编辑节点独立于 `api_config.json` 管理。聊天节点继续只负责文本 / 多模态对话，图像节点只负责 `neko.生图` / `neko.修图`。
-* **xAI 图像生成 / 编辑**：新增 `neko.生图`、`neko.画图`、`neko.修图`、`neko.图像模型列表`、`neko.图像模型搜索`、`neko.图像模型切换` 指令。
-* **图像输入输出链路优化**：修图命令会优先复用当前消息或引用消息中的图片，并尽量转成 `data:image/...;base64,...` 直接发给 xAI；输出优先请求 `b64_json`，必要时回退为 URL 下载后再转发给 QQ。
+* **xAI / OpenAI 图像生成与编辑**：新增 `neko.生图`、`neko.画图`、`neko.修图`、`neko.图像模型列表`、`neko.图像模型搜索`、`neko.图像模型切换` 指令。OpenAI 图像节点默认模型为 `gpt-image-2`。
+* **图像输入输出链路优化**：修图命令会优先复用当前消息或引用消息中的图片，并尽量转成 `data:image/...;base64,...` 传给图像接口；输出优先读取 `b64_json`，必要时回退为 URL 下载后再转发给 QQ。OpenAI Compatible 修图 URL 若填写 `/v1/chat/completions`，插件会从返回文本里的 Markdown data URI 图片中提取结果。
 * **图像命令可选参数**：
   - `neko.生图`：支持 `--count` / `--ratio` / `--resolution` / `--model` / `--node`
   - `neko.修图`：支持 `--ratio` / `--resolution` / `--model` / `--node`
@@ -81,8 +81,8 @@
 | `neko.图像模型列表 [页码]` | 查看独立图像 API 节点列表 |
 | `neko.图像模型搜索 <关键词> [页码]` | 按备注 / 模型 / URL 搜索图像节点 |
 | `neko.图像模型切换 <编号>` | 切换当前默认图像节点 |
-| `neko.生图 <提示词>` | 调用 xAI 图像生成接口，支持 `--count / --ratio / --resolution / --model / --node` |
-| `neko.修图 <提示词>` | 调用 xAI 图像编辑接口，支持 `--ratio / --resolution / --model / --node` |
+| `neko.生图 <提示词>` | 调用图像生成节点，支持 xAI / OpenAI，支持 `--count / --ratio / --resolution / --model / --node` |
+| `neko.修图 <提示词>` | 调用图像编辑节点，支持 xAI / OpenAI，支持 `--ratio / --resolution / --model / --node` |
 
 #### 增强改进
 
@@ -150,7 +150,7 @@
 * **原生底层请求适配**：内置原生支持 **OpenAI Chat Completions、OpenAI Responses API、Anthropic (Claude) 以及 Gemini** 四类文本/多模态接口请求格式。插件会在发包前，根据你配置的格式标签（`aiType`），在底层动态重组请求体（如 Responses 的 `instructions + input`、Anthropic 的 `messages` 结构与 `max_tokens` 强校验，或 Gemini 的 `contents` 与 `parts` 嵌套格式）。彻底拒绝因中转站格式转换不佳导致的兼容性报错。
 * **xAI Web Search（Responses 专属）**：当节点类型为 `openai-response` 且显式开启 xAI Web Search 时，插件会为请求附加 `tools: [{ type: "web_search" }]`。该能力默认关闭，只建议在 xAI 官方 API + Grok 模型场景下使用。
 * **独立图像节点池**：图像生成 / 图像编辑已从聊天节点中拆出，使用单独的 `image_api_config.json` 管理，不再混入 `api_config.json`，避免聊天路由与图像路由互相影响。
-* **xAI 图像生成 / 编辑**：支持 `POST /v1/images/generations` 与 `POST /v1/images/edits` 两类端点，并通过独立命令体系管理。图像命令优先使用 `image_api_config.json` 中的活跃图像节点，而不是聊天节点。
+* **xAI / OpenAI 图像生成与编辑**：支持 `POST /v1/images/generations` 与 `POST /v1/images/edits` 两类端点，并通过独立命令体系管理。OpenAI 图像节点默认模型为 `gpt-image-2`，修图可走 multipart `/v1/images/edits`，也可在兼容服务中把修图 URL 填成 `/v1/chat/completions`。图像命令优先使用 `image_api_config.json` 中的活跃图像节点，而不是聊天节点。
 * **独立双轨人格**：支持分别为群聊和私聊建立独立的 Prompt 人格库，并在对话中一键无缝热切换。
 
 
@@ -245,7 +245,7 @@ plugins:
 
 * 专门给 `neko.生图` / `neko.修图` / `neko.图像模型列表` / `neko.图像模型搜索` / `neko.图像模型切换` 使用。
 * 每个节点包含 `providerType`, `generationUrl`, `editUrl`, `apiKey`, `modelName`, `remark`, `aspectRatio`, `resolution`。
-* **当前仅内置 xAI 图像类型**，但结构上已经独立出来，后续接入其他图像 provider 时不需要再污染聊天节点列表。
+* 当前内置 `xai` 与 `openai` 两类图像 provider；OpenAI 图像节点默认模型为 `gpt-image-2`。
 
 5. **`group_personality.json` & `private_personality.json` (独立人格库)**
 
@@ -415,8 +415,8 @@ plugins:
 补充说明：
 
 * 图像节点和聊天节点完全分离。`neko.模型列表` 不会显示生图/修图节点，图像相关请使用 `neko.图像模型列表`。
-* 当前内置的图像 provider 只有 xAI，推荐使用 `generationUrl = /v1/images/generations`、`editUrl = /v1/images/edits`。
-* 输出链路会优先请求 `b64_json` 直接回传到 QQ；如果下游只返回 URL，插件会自动下载后再发送。
+* 当前内置的图像 provider 包括 `xai` 与 `openai`，两者都推荐使用 `generationUrl = /v1/images/generations`；OpenAI 修图可用 `editUrl = /v1/images/edits`，兼容接口也可填 `/v1/chat/completions`。
+* 输出链路会优先读取 `b64_json` 直接回传到 QQ；如果下游只返回 URL，插件会自动下载后再发送；如果 OpenAI Compatible 返回 Markdown 形式的 data URI 图片，也会自动提取发送。
 
 #### 独立人格管理指令（⚠️ 仅限主人可用）
 

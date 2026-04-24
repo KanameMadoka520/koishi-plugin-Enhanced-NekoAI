@@ -186,8 +186,9 @@
         <button class="btn primary" @click="openFile">选择本地 image_api_config.json</button>
         <button class="btn" @click="saveFile" :disabled="!fileHandle || !isDirty">保存</button>
         <button class="btn" @click="exportBackup">导出备份</button>
-        <button class="btn" @click="exportTemplate">下载 xAI 模板</button>
-        <button class="btn" @click="addNode">+ 新增图像节点</button>
+        <button class="btn" @click="exportTemplate">下载图像模板</button>
+        <button class="btn" @click="addNode('openai')">+ 新增 OpenAI 图像节点</button>
+        <button class="btn" @click="addNode('xai')">+ 新增 xAI 图像节点</button>
         <input class="search" v-model="search" placeholder="搜索备注 / 模型 / URL / provider..." />
       </div>
       <div class="toolbar-note">URL 仍由你手动填写，右侧按钮只负责补常见后缀。页面默认不提供图像测活按钮，避免直接消耗图像额度。</div>
@@ -228,15 +229,16 @@
       <article class="card" v-for="(node, index) in filteredNodes" :key="node._id">
         <div class="card-head">
           <span class="card-index">#{{ node._index }}</span>
-          <span class="badge">xAI 图像</span>
-          <span class="card-title">{{ node.modelName || 'grok-imagine-image' }}</span>
+          <span class="badge">{{ providerLabel(node.providerType) }}</span>
+          <span class="card-title">{{ node.modelName || defaultModel(node.providerType) }}</span>
           <span class="card-subtitle">{{ node.remark || '还没写备注' }}</span>
         </div>
 
         <div class="grid">
           <div class="field">
             <label>Provider</label>
-            <select v-model="node.providerType" @change="markDirty()">
+            <select v-model="node.providerType" @change="onProviderChange(node)">
+              <option value="openai">openai</option>
               <option value="xai">xai</option>
             </select>
           </div>
@@ -246,8 +248,9 @@
           </div>
           <div class="field">
             <label>图像模型</label>
-            <input class="mono" v-model="node.modelName" @input="markDirty()" placeholder="grok-imagine-image" />
-            <div class="field-help">xAI 官方常见图像模型：<span class="mono">grok-imagine-image</span>。</div>
+            <input class="mono" v-model="node.modelName" @input="markDirty()" :placeholder="defaultModel(node.providerType)" />
+            <div class="field-help" v-if="node.providerType === 'openai'">OpenAI 图像渠道默认模型：<span class="mono">gpt-image-2</span>。修图 URL 可填写 <span class="mono">/v1/images/edits</span>，兼容接口也可填写 <span class="mono">/v1/chat/completions</span>。</div>
+            <div class="field-help" v-else>xAI 官方常见图像模型：<span class="mono">grok-imagine-image</span>。</div>
           </div>
           <div class="field">
             <label>默认宽高比</label>
@@ -268,7 +271,7 @@
               <option value="20:9">20:9（超长横屏）</option>
               <option value="9:20">9:20（超长竖屏）</option>
             </select>
-            <div class="field-help">空白不等于 auto。空白表示这个节点不会主动传 <span class="mono">aspect_ratio</span>；如果命令里也没写 <span class="mono">--ratio</span>，就完全交给 xAI 自己决定。auto 表示会显式传 <span class="mono">aspect_ratio=auto</span> 给 xAI。</div>
+            <div class="field-help">空白不等于 auto。空白表示这个节点不会主动传 <span class="mono">aspect_ratio</span>；如果命令里也没写 <span class="mono">--ratio</span>，就完全交给图像接口自己决定。auto 表示会显式传 <span class="mono">aspect_ratio=auto</span>。</div>
           </div>
           <div class="field">
             <label>默认分辨率</label>
@@ -277,17 +280,17 @@
               <option value="1k">1k（标准清晰度）</option>
               <option value="2k">2k（高清清晰度）</option>
             </select>
-            <div class="field-help">空白表示这个节点不会主动传 <span class="mono">resolution</span>；如果命令里也没写 <span class="mono">--resolution</span>，就完全交给 xAI 自己决定。当前预设只有 <span class="mono">1k</span> 和 <span class="mono">2k</span>。</div>
+            <div class="field-help">空白表示这个节点不会主动传 <span class="mono">resolution</span>；如果命令里也没写 <span class="mono">--resolution</span>，就完全交给图像接口自己决定。当前预设只有 <span class="mono">1k</span> 和 <span class="mono">2k</span>。</div>
           </div>
           <div class="field">
             <label>API Key</label>
-            <input class="mono" :type="visibleKeys.has(node._id) ? 'text' : 'password'" v-model="node.apiKey" @input="markDirty()" placeholder="xai-..." />
+            <input class="mono" :type="visibleKeys.has(node._id) ? 'text' : 'password'" v-model="node.apiKey" @input="markDirty()" :placeholder="node.providerType === 'openai' ? 'sk-...' : 'xai-...'" />
           </div>
           <div class="field" style="grid-column: 1 / -1;">
             <label>生图 URL</label>
             <div class="field-row">
               <div class="field-input">
-                <input class="mono" v-model="node.generationUrl" @input="markDirty()" placeholder="先填基础地址，需要时点右侧按钮补常见后缀" />
+                <input class="mono" v-model="node.generationUrl" @input="markDirty()" :placeholder="defaultGenerationUrl(node.providerType)" />
               </div>
               <button class="btn" @click="appendGenerationSuffix(node)">补 /v1/images/generations</button>
             </div>
@@ -296,7 +299,7 @@
             <label>修图 URL</label>
             <div class="field-row">
               <div class="field-input">
-                <input class="mono" v-model="node.editUrl" @input="markDirty()" placeholder="先填基础地址，需要时点右侧按钮补常见后缀" />
+                <input class="mono" v-model="node.editUrl" @input="markDirty()" :placeholder="node.providerType === 'openai' ? 'https://api.openai.com/v1/images/edits 或 /v1/chat/completions' : defaultEditUrl(node.providerType)" />
               </div>
               <button class="btn" @click="appendEditSuffix(node)">补 /v1/images/edits</button>
             </div>
@@ -328,18 +331,30 @@
         let idCounter = 0;
 
         const genId = () => `img_${++idCounter}_${Math.random().toString(36).slice(2, 8)}`;
-        const normalizeNode = (input = {}) => ({
+        const normalizeProvider = (input = '') => {
+          const raw = String(input || '').trim().toLowerCase();
+          if (raw === 'openai' || raw === 'openai-compatible' || raw === 'openai_compatible') return 'openai';
+          return 'xai';
+        };
+        const defaultModel = (providerType = 'xai') => normalizeProvider(providerType) === 'openai' ? 'gpt-image-2' : 'grok-imagine-image';
+        const defaultGenerationUrl = (providerType = 'xai') => normalizeProvider(providerType) === 'openai' ? 'https://api.openai.com/v1/images/generations' : 'https://api.x.ai/v1/images/generations';
+        const defaultEditUrl = (providerType = 'xai') => normalizeProvider(providerType) === 'openai' ? 'https://api.openai.com/v1/images/edits' : 'https://api.x.ai/v1/images/edits';
+        const providerLabel = (providerType = 'xai') => normalizeProvider(providerType) === 'openai' ? 'OpenAI 图像' : 'xAI 图像';
+        const normalizeNode = (input = {}) => {
+          const providerType = normalizeProvider(input.providerType);
+          return ({
           _id: input._id || genId(),
           _index: 0,
-          providerType: 'xai',
+          providerType,
           generationUrl: input.generationUrl || '',
           editUrl: input.editUrl || '',
           apiKey: input.apiKey || '',
-          modelName: input.modelName || 'grok-imagine-image',
+          modelName: input.modelName || defaultModel(providerType),
           remark: input.remark || '',
           aspectRatio: input.aspectRatio || '',
           resolution: input.resolution || '',
-        });
+          });
+        };
         const withIndex = (list) => list.map((item, index) => ({ ...item, _index: index }));
 
         const filteredNodes = computed(() => {
@@ -396,8 +411,22 @@
           else visibleKeys.add(id);
         };
 
-        const addNode = () => {
-          nodes.value.push(normalizeNode({}));
+        const onProviderChange = (node) => {
+          node.providerType = normalizeProvider(node.providerType);
+          if (!node.modelName) node.modelName = defaultModel(node.providerType);
+          if (!node.generationUrl) node.generationUrl = defaultGenerationUrl(node.providerType);
+          if (!node.editUrl) node.editUrl = defaultEditUrl(node.providerType);
+          markDirty();
+        };
+
+        const addNode = (providerType = 'openai') => {
+          const provider = normalizeProvider(providerType);
+          nodes.value.push(normalizeNode({
+            providerType: provider,
+            generationUrl: defaultGenerationUrl(provider),
+            editUrl: defaultEditUrl(provider),
+            modelName: defaultModel(provider),
+          }));
           markDirty();
         };
 
@@ -474,6 +503,16 @@
               remark: 'xAI 官方图像模板',
               aspectRatio: '',
               resolution: '',
+            },
+            {
+              providerType: 'openai',
+              generationUrl: 'https://api.openai.com/v1/images/generations',
+              editUrl: 'https://api.openai.com/v1/images/edits',
+              apiKey: 'sk-your-openai-key',
+              modelName: 'gpt-image-2',
+              remark: 'OpenAI 图像模板',
+              aspectRatio: '',
+              resolution: '',
             }
           ];
           const blob = new Blob([JSON.stringify(template, null, 2)], { type: 'application/json' });
@@ -512,6 +551,11 @@
           filteredNodes,
           detectedFile,
           markDirty,
+          defaultModel,
+          defaultGenerationUrl,
+          defaultEditUrl,
+          providerLabel,
+          onProviderChange,
           appendGenerationSuffix,
           appendEditSuffix,
           toggleKey,
