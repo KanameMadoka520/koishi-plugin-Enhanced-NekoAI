@@ -48,6 +48,19 @@
     .toolbar { margin-top: 18px; padding: 16px; }
     .toolbar-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
     .toolbar-note { margin-top: 12px; font-size: 12px; color: var(--muted); line-height: 1.6; }
+    .global-settings {
+      margin-top: 14px;
+      padding: 14px;
+      border: 1px dashed var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--surface-2);
+      display: grid;
+      grid-template-columns: minmax(220px, 1fr) minmax(220px, 1.4fr);
+      gap: 12px;
+      align-items: end;
+    }
+    .global-settings-title { font-size: 13px; font-weight: 700; margin-bottom: 6px; }
+    .global-settings-desc { font-size: 11px; color: var(--muted); line-height: 1.6; }
     .btn {
       border: 1px solid var(--border);
       background: var(--surface-2);
@@ -171,6 +184,7 @@
       .hero { padding: 20px 18px; }
       .card { padding: 16px; }
       .field-row { flex-direction: column; }
+      .global-settings { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -192,6 +206,28 @@
         <input class="search" v-model="search" placeholder="搜索备注 / 模型 / URL / provider..." />
       </div>
       <div class="toolbar-note">URL 仍由你手动填写，右侧按钮只负责补常见后缀。页面默认不提供图像测活按钮，避免直接消耗图像额度。</div>
+      <div class="global-settings">
+        <div>
+          <div class="global-settings-title">全局图像请求超时</div>
+          <div class="global-settings-desc">
+            控制 <span class="mono">neko.生图</span> / <span class="mono">neko.修图</span> 等待下游图像接口的最长时间。这里按“秒”填写，保存到 <span class="mono">runtime_config.json</span> 的 <span class="mono">imageApiTimeoutMs</span>。
+          </div>
+        </div>
+        <div class="field">
+          <label>超时时间（秒）</label>
+          <div class="field-row">
+            <div class="field-input">
+              <input type="number" min="1" step="1" v-model.number="imageTimeoutSeconds" @input="onImageTimeoutInput" />
+            </div>
+            <button class="btn" @click="openRuntimeFile">选择 runtime_config.json</button>
+            <button class="btn primary" @click="saveRuntimeFile" :disabled="!runtimeFileHandle || !runtimeDirty">保存运行配置</button>
+          </div>
+          <div class="field-help">
+            当前约 {{ imageTimeoutLabel }}。如果没有绑定本地 <span class="mono">runtime_config.json</span>，可以先选择文件再保存；直接从同目录检测到的配置只能用于载入预览。
+          </div>
+          <div class="field-help">运行配置：{{ runtimeFileName || '未绑定 runtime_config.json' }} · {{ runtimeDirty ? '待保存' : '已同步' }}</div>
+        </div>
+      </div>
     </section>
 
     <section class="banner" v-if="detectedFile">
@@ -335,10 +371,15 @@
         const nodes = ref([]);
         const fileName = ref('');
         const isDirty = ref(false);
+        const runtimeDirty = ref(false);
         const search = ref('');
         const visibleKeys = reactive(new Set());
         const detectedFile = ref(null);
-        let fileHandle = null;
+        const runtimeConfig = ref({});
+        const runtimeFileName = ref('');
+        const imageTimeoutSeconds = ref(300);
+        const fileHandle = ref(null);
+        const runtimeFileHandle = ref(null);
         let idCounter = 0;
 
         const genId = () => `img_${++idCounter}_${Math.random().toString(36).slice(2, 8)}`;
@@ -351,6 +392,18 @@
         const defaultGenerationUrl = (providerType = 'xai') => normalizeProvider(providerType) === 'openai' ? 'https://api.openai.com/v1/images/generations' : 'https://api.x.ai/v1/images/generations';
         const defaultEditUrl = (providerType = 'xai') => normalizeProvider(providerType) === 'openai' ? 'https://api.openai.com/v1/images/edits' : 'https://api.x.ai/v1/images/edits';
         const defaultSupportsEdit = () => true;
+        const normalizeTimeoutSeconds = (value) => {
+          const seconds = Math.floor(Number(value));
+          return Number.isFinite(seconds) && seconds > 0 ? seconds : 300;
+        };
+        const imageTimeoutLabel = computed(() => {
+          const seconds = normalizeTimeoutSeconds(imageTimeoutSeconds.value);
+          if (seconds >= 60) {
+            const minutes = seconds / 60;
+            return `${Number.isInteger(minutes) ? minutes : minutes.toFixed(1)} 分钟`;
+          }
+          return `${seconds} 秒`;
+        });
         const providerLabel = (providerType = 'xai') => normalizeProvider(providerType) === 'openai' ? 'OpenAI 图像' : 'xAI 图像';
         const parseBoolean = (value, fallback = false) => {
           if (typeof value === 'boolean') return value;
@@ -404,6 +457,15 @@
         });
 
         const markDirty = () => { isDirty.value = true; };
+        const markRuntimeDirty = () => { runtimeDirty.value = true; };
+        const onImageTimeoutInput = () => {
+          imageTimeoutSeconds.value = normalizeTimeoutSeconds(imageTimeoutSeconds.value);
+          runtimeConfig.value = {
+            ...(runtimeConfig.value || {}),
+            imageApiTimeoutMs: imageTimeoutSeconds.value * 1000,
+          };
+          markRuntimeDirty();
+        };
         const getPayload = () => nodes.value.map((node) => ({
           providerType: node.providerType,
           generationUrl: node.generationUrl,
@@ -415,6 +477,18 @@
           resolution: node.resolution,
           supportsEdit: nodeSupportsEdit(node),
         }));
+        const getRuntimePayload = () => {
+          const current = runtimeConfig.value && typeof runtimeConfig.value === 'object' ? runtimeConfig.value : {};
+          const comments = current._comments && typeof current._comments === 'object' && !Array.isArray(current._comments) ? current._comments : {};
+          return {
+            ...current,
+            _comments: {
+              ...comments,
+              imageApiTimeoutMs: '调用下游图像 API 的超时时间(ms)，控制生图/修图最长等待时间',
+            },
+            imageApiTimeoutMs: normalizeTimeoutSeconds(imageTimeoutSeconds.value) * 1000,
+          };
+        };
 
         const appendKnownSuffix = (current, suffix, pattern, warnText) => {
           const url = String(current || '').trim();
@@ -513,30 +587,72 @@
           isDirty.value = false;
         };
 
+        const loadRuntimeFromText = (text, name) => {
+          let data = {};
+          try { data = JSON.parse(text); } catch (e) { data = {}; }
+          runtimeConfig.value = data && typeof data === 'object' && !Array.isArray(data) ? data : {};
+          const explicitMs = Number(runtimeConfig.value.imageApiTimeoutMs);
+          const fallbackMs = Number(runtimeConfig.value.apiTimeoutMs);
+          const resolvedMs = Number.isFinite(explicitMs) && explicitMs > 0
+            ? explicitMs
+            : Math.max(Number.isFinite(fallbackMs) && fallbackMs > 0 ? fallbackMs : 120000, 300000);
+          imageTimeoutSeconds.value = normalizeTimeoutSeconds(Math.round(resolvedMs / 1000));
+          runtimeFileName.value = name || '';
+          runtimeDirty.value = false;
+        };
+
         const openFile = async () => {
           try {
-            [fileHandle] = await window.showOpenFilePicker({
+            [fileHandle.value] = await window.showOpenFilePicker({
               types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }],
               multiple: false,
             });
-            const file = await fileHandle.getFile();
+            const file = await fileHandle.value.getFile();
             loadFromText(await file.text(), file.name);
           } catch (e) {}
         };
 
+        const openRuntimeFile = async () => {
+          try {
+            [runtimeFileHandle.value] = await window.showOpenFilePicker({
+              types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }],
+              multiple: false,
+            });
+            const file = await runtimeFileHandle.value.getFile();
+            loadRuntimeFromText(await file.text(), file.name);
+          } catch (e) {}
+        };
+
         const saveFile = async () => {
-          if (!fileHandle) {
+          if (!fileHandle.value) {
             alert('请先选择本地 image_api_config.json 再保存。');
             return;
           }
           try {
-            const writer = await fileHandle.createWritable();
+            const writer = await fileHandle.value.createWritable();
             await writer.write(JSON.stringify(getPayload(), null, 2));
             await writer.close();
             isDirty.value = false;
             alert('保存成功。');
           } catch (e) {
             alert(`保存失败：${e.message || e}`);
+          }
+        };
+
+        const saveRuntimeFile = async () => {
+          if (!runtimeFileHandle.value) {
+            alert('请先选择本地 runtime_config.json 再保存。');
+            return;
+          }
+          try {
+            const writer = await runtimeFileHandle.value.createWritable();
+            await writer.write(JSON.stringify(getRuntimePayload(), null, 2));
+            await writer.close();
+            runtimeConfig.value = getRuntimePayload();
+            runtimeDirty.value = false;
+            alert('运行配置保存成功。修改后请执行 neko.重载配置 或重启插件使超时生效。');
+          } catch (e) {
+            alert(`保存运行配置失败：${e.message || e}`);
           }
         };
 
@@ -588,7 +704,7 @@
           if (!detectedFile.value) return;
           loadFromText(detectedFile.value.text, detectedFile.value.name);
           detectedFile.value = null;
-          fileHandle = null;
+          fileHandle.value = null;
         };
 
         onMounted(async () => {
@@ -600,17 +716,30 @@
               detectedFile.value = { name: 'image_api_config.json', text };
             }
           } catch (e) {}
+          try {
+            const resp = await fetch('./runtime_config.json', { method: 'GET', cache: 'no-cache' });
+            if (resp.ok) {
+              loadRuntimeFromText(await resp.text(), 'runtime_config.json');
+            }
+          } catch (e) {}
         });
 
         return {
           nodes,
           fileName,
+          fileHandle,
           isDirty,
+          runtimeDirty,
+          runtimeFileHandle,
+          runtimeFileName,
+          imageTimeoutSeconds,
+          imageTimeoutLabel,
           search,
           visibleKeys,
           filteredNodes,
           detectedFile,
           markDirty,
+          onImageTimeoutInput,
           defaultModel,
           defaultGenerationUrl,
           defaultEditUrl,
@@ -628,7 +757,9 @@
           cloneNode,
           removeNode,
           openFile,
+          openRuntimeFile,
           saveFile,
+          saveRuntimeFile,
           exportBackup,
           exportTemplate,
           loadDetectedFile,

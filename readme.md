@@ -217,7 +217,8 @@ plugins:
 * **`groupLimits`**: 记录各个群聊的 12 小时响应次数上限（如 `{"111111111": 100}`）。
 * **`contextAutoForgetMs`**: 上下文闲置自动清空时间（毫秒），`0` 为关闭。默认 10 分钟。
 * **`groupMentionFocusMode`**: 群聊 @ 专注回答模式，默认 `true`。开启后，被 @ 时优先围绕本轮消息回答，上下文与引用仅作参考；如需恢复旧行为，可关闭该字段。
-* **`apiTimeoutMs`**: 调用下游模型的超时时间（毫秒）。
+* **`apiTimeoutMs`**: 调用下游聊天模型的超时时间（毫秒）。
+* **`imageApiTimeoutMs`**: 调用下游图像接口的超时时间（毫秒），只影响 `neko.生图` / `neko.修图`。默认 `300000`，也就是 5 分钟。
 * **`sendProcessingNotice` / `processingNoticeText` / `processingNoticeDelayMs`**: 控制收到请求后是否先发“处理中”提示、提示文案以及延迟多久再发。提示消息会在发送后 30 秒自动撤回（需平台支持删除消息），如需关闭可将 `sendProcessingNotice` 设为 `false`。
 * **`requestQueue.maxConcurrent`**: 请求队列允许同时进行的 API 请求数量。默认 `3`。
 * **`requestQueue.maxPending`**: 允许等待中的请求数量上限，`0` 表示不限制。默认 `10`。达到上限后会直接拒绝新的请求。

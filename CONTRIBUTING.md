@@ -246,7 +246,8 @@ if (aiType === 'anthropic') {
 
 请求反馈相关字段的现有做法可参考：
 
-* `apiTimeoutMs`：下游模型调用超时
+* `apiTimeoutMs`：下游聊天模型调用超时
+* `imageApiTimeoutMs`：下游图像接口调用超时，只影响 `neko.生图` / `neko.修图`
 * `sendProcessingNotice` / `processingNoticeText` / `processingNoticeDelayMs`：处理中提示（发送后 30 秒自动撤回，需平台支持删除消息）
 * `sendFailureNotice` / `failureNoticeDetailMode` / `generationFailedText`：失败回报和错误详情粒度
 

@@ -42,7 +42,7 @@
       "title": "请求反馈",
       "summary": "控制 API 超时、处理中提示、失败回报和错误详情展示。",
       "mode": "both",
-      "fields": ["apiTimeoutMs", "sendProcessingNotice", "processingNoticeText", "processingNoticeDelayMs", "sendFailureNotice", "failureNoticeDetailMode", "generationFailedText"]
+      "fields": ["apiTimeoutMs", "imageApiTimeoutMs", "sendProcessingNotice", "processingNoticeText", "processingNoticeDelayMs", "sendFailureNotice", "failureNoticeDetailMode", "generationFailedText"]
     },
     {
       "id": "memory",
@@ -337,10 +337,17 @@
       "minimum": 0
     },
     "apiTimeoutMs": {
-      "title": "API 超时",
+      "title": "聊天 API 超时",
       "type": "number",
-      "description": "调用下游 API 的超时时间(ms)。",
+      "description": "调用下游聊天 API 的超时时间(ms)。",
       "default": 120000,
+      "minimum": 1000
+    },
+    "imageApiTimeoutMs": {
+      "title": "图像 API 超时",
+      "type": "number",
+      "description": "调用下游图像 API 的超时时间(ms)，控制 neko.生图 / neko.修图 的最长等待时间。例如 300000 表示 5 分钟。",
+      "default": 300000,
       "minimum": 1000
     },
     "sendProcessingNotice": {
