@@ -86,7 +86,7 @@
       color: var(--text);
       outline: none;
     }
-    .search:focus, .field input:focus, .field select:focus {
+    .search:focus, .field input:focus, .field select:focus, .field textarea:focus {
       border-color: var(--primary);
       box-shadow: 0 0 0 3px rgba(79,70,229,0.12);
     }
@@ -151,7 +151,7 @@
       font-size: 12px;
       color: var(--muted);
     }
-    .field input, .field select {
+    .field input, .field select, .field textarea {
       width: 100%;
       padding: 11px 12px;
       border: 1px solid var(--border);
@@ -161,6 +161,11 @@
       outline: none;
       font-size: 13px;
       font-family: inherit;
+    }
+    .field textarea {
+      min-height: 76px;
+      resize: vertical;
+      line-height: 1.45;
     }
     .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
     .field-help {
@@ -340,6 +345,12 @@
               </div>
               <button class="btn" @click="appendGenerationSuffix(node)">补 /v1/images/generations</button>
             </div>
+            <div class="field-help">主 URL 失败或返回空图片时，会按下面的备用 URL 顺序继续尝试，直到得到图片或全部失败。</div>
+          </div>
+          <div class="field" style="grid-column: 1 / -1;">
+            <label>备用生图 URL（每行一个）</label>
+            <textarea class="mono" :value="urlListToText(node.generationUrls)" @input="updateUrlList(node, 'generationUrls', $event.target.value)" :placeholder="defaultGenerationUrl(node.providerType)"></textarea>
+            <div class="field-help">适合同一个供应商有多个中转地址的场景；不要重复填写主 URL。</div>
           </div>
           <div class="field" style="grid-column: 1 / -1;">
             <label>修图 URL</label>
@@ -350,6 +361,11 @@
               <button class="btn" @click="appendEditSuffix(node)" :disabled="!nodeSupportsEdit(node)">补 /v1/images/edits</button>
             </div>
             <div class="field-help" v-if="!nodeSupportsEdit(node)">此节点不会参与 <span class="mono">neko.修图</span>，已填写的修图 URL 会被保留但运行时不会调用。</div>
+          </div>
+          <div class="field" style="grid-column: 1 / -1;">
+            <label>备用修图 URL（每行一个）</label>
+            <textarea class="mono" :value="urlListToText(node.editUrls)" @input="updateUrlList(node, 'editUrls', $event.target.value)" :disabled="!nodeSupportsEdit(node)" :placeholder="nodeSupportsEdit(node) ? defaultEditUrl(node.providerType) : '当前节点仅生图，修图命令会跳过'"></textarea>
+            <div class="field-help">修图或参考图生图会按主修图 URL、备用修图 URL 的顺序尝试。</div>
           </div>
         </div>
 
@@ -392,6 +408,22 @@
         const defaultGenerationUrl = (providerType = 'xai') => normalizeProvider(providerType) === 'openai' ? 'https://api.openai.com/v1/images/generations' : 'https://api.x.ai/v1/images/generations';
         const defaultEditUrl = (providerType = 'xai') => normalizeProvider(providerType) === 'openai' ? 'https://api.openai.com/v1/images/edits' : 'https://api.x.ai/v1/images/edits';
         const defaultSupportsEdit = () => true;
+        const normalizeUrlList = (value) => {
+          const values = Array.isArray(value) ? value : String(value || '').split(/\r?\n/);
+          const urls = [];
+          const seen = new Set();
+          values.map((item) => String(item || '').trim()).filter(Boolean).forEach((url) => {
+            if (seen.has(url)) return;
+            seen.add(url);
+            urls.push(url);
+          });
+          return urls;
+        };
+        const urlListToText = (value) => normalizeUrlList(value).join('\n');
+        const updateUrlList = (node, field, text) => {
+          node[field] = normalizeUrlList(text);
+          markDirty();
+        };
         const normalizeTimeoutSeconds = (value) => {
           const seconds = Math.floor(Number(value));
           return Number.isFinite(seconds) && seconds > 0 ? seconds : 300;
@@ -431,7 +463,9 @@
           _index: 0,
           providerType,
           generationUrl: input.generationUrl || '',
+          generationUrls: normalizeUrlList(input.generationUrls),
           editUrl: input.editUrl || '',
+          editUrls: normalizeUrlList(input.editUrls),
           apiKey: input.apiKey || '',
           modelName,
           remark: input.remark || '',
@@ -451,7 +485,9 @@
               node.modelName,
               node.remark,
               node.generationUrl,
+              ...(node.generationUrls || []),
               node.editUrl,
+              ...(node.editUrls || []),
             ].some((item) => String(item || '').toLowerCase().includes(q));
           });
         });
@@ -469,7 +505,9 @@
         const getPayload = () => nodes.value.map((node) => ({
           providerType: node.providerType,
           generationUrl: node.generationUrl,
+          generationUrls: normalizeUrlList(node.generationUrls),
           editUrl: node.editUrl,
+          editUrls: normalizeUrlList(node.editUrls),
           apiKey: node.apiKey,
           modelName: node.modelName,
           remark: node.remark,
@@ -671,7 +709,9 @@
             {
               providerType: 'xai',
               generationUrl: 'https://api.x.ai/v1/images/generations',
+              generationUrls: [],
               editUrl: 'https://api.x.ai/v1/images/edits',
+              editUrls: [],
               apiKey: 'xai-your-key',
               modelName: 'grok-imagine-image',
               remark: 'xAI 官方图像模板',
@@ -682,7 +722,9 @@
             {
               providerType: 'openai',
               generationUrl: 'https://api.openai.com/v1/images/generations',
+              generationUrls: [],
               editUrl: 'https://api.openai.com/v1/images/edits',
+              editUrls: [],
               apiKey: 'sk-your-openai-key',
               modelName: 'gpt-image-2',
               remark: 'OpenAI 图像模板',
@@ -752,6 +794,8 @@
           onSupportsEditChange,
           appendGenerationSuffix,
           appendEditSuffix,
+          urlListToText,
+          updateUrlList,
           toggleKey,
           addNode,
           cloneNode,

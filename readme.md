@@ -245,8 +245,9 @@ plugins:
 4. **`image_api_config.json` (独立图像 API 配置)**
 
 * 专门给 `neko.生图` / `neko.修图` / `neko.图像模型列表` / `neko.图像模型搜索` / `neko.图像模型切换` 使用。
-* 每个节点包含 `providerType`, `generationUrl`, `editUrl`, `apiKey`, `modelName`, `remark`, `aspectRatio`, `resolution`, `supportsEdit`。
+* 每个节点包含 `providerType`, `generationUrl`, `generationUrls`, `editUrl`, `editUrls`, `apiKey`, `modelName`, `remark`, `aspectRatio`, `resolution`, `supportsEdit`。
 * 当前内置 `xai` 与 `openai` 两类图像 provider；xAI 默认 `supportsEdit: true`，OpenAI `gpt-image-2` 默认 `supportsEdit: true`。如需让某个节点只做文生图，可以显式设置 `supportsEdit: false`。
+* `generationUrls` / `editUrls` 是可选备用 URL 列表。插件会先请求主 URL，失败或返回空图片时按备用 URL 顺序重试，直到得到图片或全部失败。
 
 5. **`group_personality.json` & `private_personality.json` (独立人格库)**
 
@@ -418,6 +419,7 @@ plugins:
 
 * 图像节点和聊天节点完全分离。`neko.模型列表` 不会显示生图/修图节点，图像相关请使用 `neko.图像模型列表`。
 * 当前内置的图像 provider 包括 `xai` 与 `openai`，两者都推荐使用 `generationUrl = /v1/images/generations`；支持编辑的节点还应配置 `editUrl = /v1/images/edits`。OpenAI `gpt-image-2` 节点可在 `supportsEdit: true` 时处理引用图，用户可直接引用带图消息后发送 `neko.生图 提示词` 做参考图生图。
+* 同一个图像节点可以配置 `generationUrls` / `editUrls` 作为备用接口 URL。主 URL 失败或响应里没有可用图片时，插件会继续尝试备用 URL；成功后完成提示会说明已改用备用 URL。
 * 输出链路会优先读取 `b64_json` 直接回传到 QQ；如果下游只返回 URL，插件会自动下载后再发送；如果 OpenAI Compatible 返回 Markdown 形式的 data URI 图片，也会自动提取发送。
 
 #### 独立人格管理指令（⚠️ 仅限主人可用）
