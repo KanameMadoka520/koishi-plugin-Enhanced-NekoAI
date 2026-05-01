@@ -126,6 +126,8 @@
     "mode": "failover",
     "retryCount": 2,
     "retryDelay": 1000,
+    "sameNodeRetryCount": 0,
+    "sameNodeRetryDelay": 1000,
     "excludeIndices": []
   },
   "apiParams": {

@@ -160,6 +160,7 @@
 
 * **智能路由与故障自愈（Smart Router）**：
 * 内置 API 节点智能路由引擎，支持 `failover`（按序故障转移）、`round-robin`（全局轮询）和 `random`（随机选择）三种策略模式。当主节点请求失败时，自动尝试备选节点，最大重试次数和重试间隔均可配置，确保 AI 服务高可用。
+* 支持同节点原地重试：`sameNodeRetryCount` / `sameNodeRetryDelay` 控制当前聊天 API 节点在遇到可重试错误时先重试几次、每次间隔多久；即使智能路由关闭，同节点重试也能对当前节点生效。
 * 支持排除指定节点编号，灵活管理节点池。
 
 * **长期记忆持久化与自动压缩（Long-term Memory）**：
@@ -464,6 +465,7 @@ plugins:
 
 * `neko.智能路由 [开/关]`：开启或关闭智能路由引擎。开启后，API 请求失败时自动尝试备选节点。
 * `neko.路由模式 [failover/round-robin/random]`：切换路由策略模式。
+* 同节点重试次数和间隔请在 `runtime_config.json` / GUI 配置编辑器的 `smartRouter.sameNodeRetryCount`、`smartRouter.sameNodeRetryDelay` 中调整。
 * `neko.日志级别 [debug/info/warn/error]`：动态调整日志输出级别，无需重启。
 
 #### 帮助指令（所有人可用）

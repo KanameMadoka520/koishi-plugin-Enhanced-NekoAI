@@ -139,6 +139,11 @@ Koishi 底层的 `session.send()` 遇到 1200 等风控拦截时，**有时并�
 
 路由状态保存在 `state.routerState` 中（包含 `roundRobinIndex` 和 `failedNodes`）。新增路由策略时，修改 `selectNextNode()` 函数即可。
 
+同节点重试与跨节点故障转移是两层逻辑：
+
+* `smartRouter.sameNodeRetryCount` / `smartRouter.sameNodeRetryDelay`：同一个聊天 API 节点遇到可重试错误时，先原地重试；即使智能路由关闭也会生效。
+* `smartRouter.retryCount` / `smartRouter.retryDelay`：智能路由开启后，当前节点耗尽同节点重试仍失败时，再切换到其他节点。
+
 ### 6. 图片渲染模块（新增）
 
 `lib/render.js` 负责帮助菜单、人格列表、模型列表分页、状态面板、当前群状态的图片卡片渲染，严格依赖 Koishi 的 `puppeteer` service，而不是在插件内部自行启动浏览器。

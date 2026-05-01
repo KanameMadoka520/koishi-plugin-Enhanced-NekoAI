@@ -56,7 +56,7 @@
       "title": "智能路由",
       "summary": "插件当前支持的路由模式、重试和排除列表。",
       "mode": "advanced",
-      "fields": ["smartRouter.enabled", "smartRouter.mode", "smartRouter.excludeIndices", "smartRouter.retryCount", "smartRouter.retryDelay"]
+      "fields": ["smartRouter.enabled", "smartRouter.mode", "smartRouter.excludeIndices", "smartRouter.sameNodeRetryCount", "smartRouter.sameNodeRetryDelay", "smartRouter.retryCount", "smartRouter.retryDelay"]
     },
     {
       "id": "memes",
@@ -484,6 +484,20 @@
       "title": "路由重试延迟",
       "type": "number",
       "description": "路由切换到下一个节点前的等待时间(ms)。",
+      "default": 1000,
+      "minimum": 0
+    },
+    "smartRouter.sameNodeRetryCount": {
+      "title": "同节点重试次数",
+      "type": "number",
+      "description": "每个聊天 API 节点遇到可重试错误时，在切换到下一个节点前，对同一节点额外重试次数。即使智能路由关闭，只要该值大于 0，也会对当前节点原地重试。",
+      "default": 0,
+      "minimum": 0
+    },
+    "smartRouter.sameNodeRetryDelay": {
+      "title": "同节点重试延迟",
+      "type": "number",
+      "description": "同一聊天 API 节点原地重试前的等待时间(ms)。",
       "default": 1000,
       "minimum": 0
     },
