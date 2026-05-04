@@ -49,7 +49,8 @@
     "apiParams": "API请求参数（temperature, maxTokens等）",
     "memorySummary": "记忆摘要压缩配置",
     "requestQueue": "请求队列并发与排队上限配置",
-    "imageApiTimeoutMs": "调用下游图像 API 的超时时间(ms)，控制生图/修图最长等待时间"
+    "imageApiTimeoutMs": "调用下游图像 API 的超时时间(ms)，控制生图/修图最长等待时间",
+    "imageRouter": "图像路由集群配置：开启后按 order 中的图像节点编号顺序依次尝试，任一节点成功即返回结果"
   },
   "masterQQ": [
     "123456789"
@@ -145,5 +146,9 @@
     "maxConcurrent": 3,
     "maxPending": 10,
     "overflowText": "NEKOAI请求队列已达上限，当前前方有{ahead}个请求未完成。请稍后重试。"
+  },
+  "imageRouter": {
+    "enabled": false,
+    "order": []
   }
 }

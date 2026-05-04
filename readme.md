@@ -18,6 +18,7 @@
 * **xAI Web Search（仅 Responses）**：在 `openai-response` 节点上新增可选的 xAI Web Search 开关，仅在开启时向 Responses 请求体附加 `tools: [{ type: "web_search" }]`，适合 xAI 官方 API + Grok 模型场景。
 * **MiniMax Anthropic 兼容修复**：兼容 Anthropic 风格返回中 `thinking` 与 `text` 分块共存的情况，不再因只读 `content[0].text` 导致 `replace` 空指针异常。
 * **独立图像节点池**：新增 `image_api_config.json`，图像生成 / 图像编辑节点独立于 `api_config.json` 管理。聊天节点继续只负责文本 / 多模态对话，图像节点只负责 `neko.生图` / `neko.修图`。
+* **图像路由集群**：新增 `runtime_config.json` 的 `imageRouter.enabled` / `imageRouter.order`，可按人工指定的图像节点编号顺序接力尝试。例如 `5, 4, 2` 会先试节点 5，失败后试节点 4，再失败后试节点 2；只要任一节点成功返回图片，本次图像任务就按成功处理。
 * **xAI / OpenAI 图像生成与参考图生图**：新增 `neko.生图`、`neko.画图`、`neko.修图`、`neko.图像模型列表`、`neko.图像模型搜索`、`neko.图像模型切换` 指令。OpenAI 图像节点默认模型为 `gpt-image-2`，在 `supportsEdit: true` 且配置 `editUrl` 时可接收引用图片。
 * **图像输入输出链路优化**：修图命令会优先复用当前消息或引用消息中的图片，并尽量转成 `data:image/...;base64,...` 传给图像接口；`neko.生图` 在检测到当前图像节点支持编辑且消息里有图片时，会把图片作为参考图传入。输出优先读取 `b64_json`，必要时回退为 URL 下载后再转发给 QQ。
 * **图像命令可选参数**：
@@ -249,6 +250,7 @@ plugins:
 * 每个节点包含 `providerType`, `generationUrl`, `generationUrls`, `editUrl`, `editUrls`, `apiKey`, `modelName`, `remark`, `aspectRatio`, `resolution`, `supportsEdit`。
 * 当前内置 `xai` 与 `openai` 两类图像 provider；xAI 默认 `supportsEdit: true`，OpenAI `gpt-image-2` 默认 `supportsEdit: true`。如需让某个节点只做文生图，可以显式设置 `supportsEdit: false`。
 * `generationUrls` / `editUrls` 是可选备用 URL 列表。插件会先请求主 URL，失败或返回空图片时按备用 URL 顺序重试，直到得到图片或全部失败。
+* `runtime_config.json` 的 `imageRouter.enabled` / `imageRouter.order` 可把多个现有图像节点组成路由集群。开启后，`neko.生图` / `neko.修图` 会按 `order` 中的节点编号依次调用；前置节点失败不会直接回报失败，只有整条路径全部失败才发出失败结论。
 
 5. **`group_personality.json` & `private_personality.json` (独立人格库)**
 

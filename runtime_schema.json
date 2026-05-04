@@ -7,94 +7,190 @@
       "title": "核心设置",
       "summary": "昵称、主人账号、拒绝文案与日志级别。",
       "mode": "both",
-      "fields": ["nickName", "masterQQ", "privateRefuse", "logLevel"]
+      "fields": [
+        "nickName",
+        "masterQQ",
+        "privateRefuse",
+        "logLevel"
+      ]
     },
     {
       "id": "active",
       "title": "活跃节点/人格",
       "summary": "当前生效的 API 与人格索引。",
       "mode": "both",
-      "fields": ["activeApiIndex", "activeImageApiIndex", "activeGroupPersonalityIndex", "activePrivatePersonalityIndex"]
+      "fields": [
+        "activeApiIndex",
+        "activeImageApiIndex",
+        "activeGroupPersonalityIndex",
+        "activePrivatePersonalityIndex"
+      ]
     },
     {
       "id": "groups",
       "title": "群聊与用户",
       "summary": "监听群组、聊天/图像黑白名单、私聊白名单与群总额度。",
       "mode": "both",
-      "fields": ["groups", "allowPrivateTalkingUsers", "userBlacklist", "chatAccess.mode", "chatAccess.whitelistUsers", "imageAccess.mode", "imageAccess.whitelistUsers", "groupLimits"]
+      "fields": [
+        "groups",
+        "allowPrivateTalkingUsers",
+        "userBlacklist",
+        "chatAccess.mode",
+        "chatAccess.whitelistUsers",
+        "imageAccess.mode",
+        "imageAccess.whitelistUsers",
+        "groupLimits"
+      ]
     },
     {
       "id": "quota",
       "title": "额度规则",
       "summary": "聊天与图像的默认额度、单独用户额度规则。",
       "mode": "both",
-      "fields": ["chatQuota.enabled", "chatQuota.defaultLimit", "chatQuota.userLimits", "imageQuota.enabled", "imageQuota.defaultGenerateLimit", "imageQuota.defaultEditLimit"]
+      "fields": [
+        "chatQuota.enabled",
+        "chatQuota.defaultLimit",
+        "chatQuota.userLimits",
+        "imageQuota.enabled",
+        "imageQuota.defaultGenerateLimit",
+        "imageQuota.defaultEditLimit"
+      ]
     },
     {
       "id": "messages",
       "title": "消息行为",
       "summary": "上下文条数、等待时间、随机回复和打字节奏。",
       "mode": "both",
-      "fields": ["maxGroupMessages", "singleMaxMessages", "randomReply", "messagesLength", "sleepTime", "singleAskSleep", "singleTalkWaiting", "eachLetterCost"]
+      "fields": [
+        "maxGroupMessages",
+        "singleMaxMessages",
+        "randomReply",
+        "messagesLength",
+        "sleepTime",
+        "singleAskSleep",
+        "singleTalkWaiting",
+        "eachLetterCost"
+      ]
     },
     {
       "id": "feedback",
       "title": "请求反馈",
       "summary": "控制 API 超时、处理中提示、失败回报和错误详情展示。",
       "mode": "both",
-      "fields": ["apiTimeoutMs", "imageApiTimeoutMs", "sendProcessingNotice", "processingNoticeText", "processingNoticeDelayMs", "sendFailureNotice", "failureNoticeDetailMode", "generationFailedText"]
+      "fields": [
+        "apiTimeoutMs",
+        "imageApiTimeoutMs",
+        "sendProcessingNotice",
+        "processingNoticeText",
+        "processingNoticeDelayMs",
+        "sendFailureNotice",
+        "failureNoticeDetailMode",
+        "generationFailedText"
+      ]
     },
     {
       "id": "memory",
       "title": "记忆与摘要",
       "summary": "闲置自动清空、记忆压缩与摘要提示词。",
       "mode": "common",
-      "fields": ["contextAutoForgetMs", "memorySummary.enabled", "memorySummary.threshold", "memorySummary.summaryPrompt"]
+      "fields": [
+        "contextAutoForgetMs",
+        "memorySummary.enabled",
+        "memorySummary.threshold",
+        "memorySummary.summaryPrompt"
+      ]
     },
     {
       "id": "router",
       "title": "智能路由",
       "summary": "插件当前支持的路由模式、重试和排除列表。",
       "mode": "advanced",
-      "fields": ["smartRouter.enabled", "smartRouter.mode", "smartRouter.excludeIndices", "smartRouter.sameNodeRetryCount", "smartRouter.sameNodeRetryDelay", "smartRouter.retryCount", "smartRouter.retryDelay"]
+      "fields": [
+        "smartRouter.enabled",
+        "smartRouter.mode",
+        "smartRouter.excludeIndices",
+        "smartRouter.sameNodeRetryCount",
+        "smartRouter.sameNodeRetryDelay",
+        "smartRouter.retryCount",
+        "smartRouter.retryDelay"
+      ]
+    },
+    {
+      "id": "imageRouter",
+      "title": "图像路由集群",
+      "summary": "按图像节点编号顺序接力尝试，任一节点成功即返回结果。",
+      "mode": "advanced",
+      "fields": [
+        "imageRouter.enabled",
+        "imageRouter.order"
+      ]
     },
     {
       "id": "memes",
       "title": "表情包",
       "summary": "控制表情包功能、目录与触发概率。",
       "mode": "common",
-      "fields": ["enableMemes", "memeProb", "memesPath"]
+      "fields": [
+        "enableMemes",
+        "memeProb",
+        "memesPath"
+      ]
     },
     {
       "id": "queue",
       "title": "请求队列",
       "summary": "当前插件支持最大并发数、最大排队长度与队列满提示文案。",
       "mode": "advanced",
-      "fields": ["requestQueue.maxConcurrent", "requestQueue.maxPending", "requestQueue.overflowText"]
+      "fields": [
+        "requestQueue.maxConcurrent",
+        "requestQueue.maxPending",
+        "requestQueue.overflowText"
+      ]
     },
     {
       "id": "mapping",
       "title": "群级映射",
       "summary": "按群绑定人格和 API，适合多群多角色场景。",
       "mode": "advanced",
-      "fields": ["groupPersonalityMap", "groupApiMap"]
+      "fields": [
+        "groupPersonalityMap",
+        "groupApiMap"
+      ]
     },
     {
       "id": "apiParams",
       "title": "API 参数",
       "summary": "向下游模型透传的参数字典。",
       "mode": "advanced",
-      "fields": ["apiParams.temperature", "apiParams.maxTokens", "apiParams.anthropicMaxTokens", "apiParams.geminiMaxTokens"]
+      "fields": [
+        "apiParams.temperature",
+        "apiParams.maxTokens",
+        "apiParams.anthropicMaxTokens",
+        "apiParams.geminiMaxTokens"
+      ]
     },
     {
       "id": "forward",
       "title": "转发设置",
       "summary": "长文本转发、模型列表输出和图片卡片风格。",
       "mode": "both",
-      "fields": ["forwardStrategy", "forwardMaxLength", "forwardMaxSegments", "groupMentionWait", "groupMentionFocusMode", "forwardModelList", "modelListImageEnabled", "uiStyle"]
+      "fields": [
+        "forwardStrategy",
+        "forwardMaxLength",
+        "forwardMaxSegments",
+        "groupMentionWait",
+        "groupMentionFocusMode",
+        "forwardModelList",
+        "modelListImageEnabled",
+        "uiStyle"
+      ]
     }
   ],
-  "allowAdditionalPaths": ["apiParams.*", "chatQuota.*", "imageQuota.*"],
+  "allowAdditionalPaths": [
+    "apiParams.*",
+    "chatQuota.*",
+    "imageQuota.*"
+  ],
   "deprecatedFields": {
     "apiHealthWeights": {
       "note": "健康评分权重已迁移到 GUI 本地偏好文件，不再写入 runtime_config.json。"
@@ -162,7 +258,12 @@
       "type": "enum",
       "description": "日志输出级别。",
       "default": "debug",
-      "enum": ["debug", "info", "warn", "error"]
+      "enum": [
+        "debug",
+        "info",
+        "warn",
+        "error"
+      ]
     },
     "activeApiIndex": {
       "title": "活跃 API 索引",
@@ -221,7 +322,10 @@
       "type": "enum",
       "description": "blacklist=黑名单模式，沿用当前群聊/私聊规则；whitelist=只有手动加入聊天白名单的 QQ 才能获得普通聊天回复。用户黑名单始终优先。",
       "default": "blacklist",
-      "enum": ["blacklist", "whitelist"]
+      "enum": [
+        "blacklist",
+        "whitelist"
+      ]
     },
     "chatAccess.whitelistUsers": {
       "title": "聊天白名单",
@@ -236,7 +340,10 @@
       "type": "enum",
       "description": "blacklist=黑名单模式，群友默认可用；whitelist=白名单模式，只有手动加入图像白名单的 QQ 可用。用户黑名单始终优先。",
       "default": "blacklist",
-      "enum": ["blacklist", "whitelist"]
+      "enum": [
+        "blacklist",
+        "whitelist"
+      ]
     },
     "imageAccess.whitelistUsers": {
       "title": "图像白名单",
@@ -381,7 +488,11 @@
       "type": "enum",
       "description": "失败提示详情模式：full=节点+错误详情，brief=仅节点，off=只给统一失败文案。",
       "default": "full",
-      "enum": ["full", "brief", "off"]
+      "enum": [
+        "full",
+        "brief",
+        "off"
+      ]
     },
     "generationFailedText": {
       "title": "失败重试文案",
@@ -450,7 +561,11 @@
       "type": "enum",
       "description": "智能路由模式，可选 failover / round-robin / random。",
       "default": "failover",
-      "enum": ["failover", "round-robin", "random"],
+      "enum": [
+        "failover",
+        "round-robin",
+        "random"
+      ],
       "deprecatedValues": {
         "roundrobin": {
           "replacedBy": "round-robin",
@@ -598,7 +713,11 @@
       "type": "enum",
       "description": "合并转发策略，可选 auto / on / off。",
       "default": "auto",
-      "enum": ["auto", "on", "off"],
+      "enum": [
+        "auto",
+        "on",
+        "off"
+      ],
       "deprecatedValues": {
         "always": {
           "replacedBy": "on",
@@ -654,7 +773,25 @@
       "type": "enum",
       "description": "图片卡片风格编号：1=极光玻璃，2=深色终端，3=暖纸卡片。",
       "default": 1,
-      "enum": [1, 2, 3]
+      "enum": [
+        1,
+        2,
+        3
+      ]
+    },
+    "imageRouter.enabled": {
+      "title": "启用图像路由集群",
+      "type": "boolean",
+      "description": "开启后，生图/修图会优先按 imageRouter.order 中的图像节点编号顺序依次尝试。只要路径上某个节点成功，就返回成功结果；全部节点失败才报错。",
+      "default": false
+    },
+    "imageRouter.order": {
+      "title": "图像路由顺序",
+      "type": "number[]",
+      "description": "图像节点编号列表，按填写顺序尝试。例如 5, 4, 2 表示先试节点5，失败后试节点4，再失败后试节点2。修图或参考图生图会自动跳过不支持修图的节点。",
+      "default": [],
+      "ui": "numberList",
+      "placeholder": "例如: 5, 4, 2"
     }
   }
 }

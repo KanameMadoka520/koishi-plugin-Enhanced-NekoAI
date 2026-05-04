@@ -93,6 +93,7 @@ lib/
 * `image_api_manager.html`：插件内自带的轻量图像节点管理工具
 * `supportsEdit`：图像节点能力标记。xAI 与 OpenAI `gpt-image-2` 默认支持生图+修图；当 `supportsEdit: true` 且 `editUrl` 已配置时，`neko.生图` 可把当前/引用消息图片作为参考图传入。
 * `generationUrls` / `editUrls`：图像节点的备用 URL 列表。主 URL 失败或返回空图片时，插件按列表顺序重试；这两个字段必须在插件、轻量 HTML 管理器和 GUI Manager 中一起保留。
+* `runtime_config.json` 里的 `imageRouter.enabled` / `imageRouter.order`：图像路由集群配置。启用后，`neko.生图` / `neko.修图` 会按人工指定的图像节点顺序依次尝试，前置节点失败不会直接判定整次任务失败，只要路径上有一个节点成功就返回成功结果。
 
 如果你新增了图像 provider 或图像节点字段，请同时检查：
 
