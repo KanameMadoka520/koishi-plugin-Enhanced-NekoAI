@@ -23,6 +23,9 @@
     "remark": "OpenAI 图像示例",
     "aspectRatio": "",
     "resolution": "",
-    "supportsEdit": true
+    "supportsEdit": true,
+    "streamingEnabled": false,
+    "partialImages": 2,
+    "streamingFallbackToNonStream": true
   }
 ]

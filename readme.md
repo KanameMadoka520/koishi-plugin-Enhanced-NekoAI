@@ -20,6 +20,7 @@
 * **独立图像节点池**：新增 `image_api_config.json`，图像生成 / 图像编辑节点独立于 `api_config.json` 管理。聊天节点继续只负责文本 / 多模态对话，图像节点只负责 `neko.生图` / `neko.修图`。
 * **图像路由集群**：新增 `runtime_config.json` 的 `imageRouter.enabled` / `imageRouter.order`，可按人工指定的图像节点编号顺序接力尝试。例如 `5, 4, 2` 会先试节点 5，失败后试节点 4，再失败后试节点 2；只要任一节点成功返回图片，本次图像任务就按成功处理。
 * **xAI / OpenAI 图像生成与参考图生图**：新增 `neko.生图`、`neko.画图`、`neko.修图`、`neko.图像模型列表`、`neko.图像模型搜索`、`neko.图像模型切换` 指令。OpenAI 图像节点默认模型为 `gpt-image-2`，在 `supportsEdit: true` 且配置 `editUrl` 时可接收引用图片。
+* **OpenAI 图像流式可选能力**：OpenAI 图像节点可单独配置 `streamingEnabled` / `partialImages` / `streamingFallbackToNonStream`。开启后会优先使用官方 SSE 流式请求与 `partial_images`，等待最终 completed 图片；中转站不支持流式时可自动回退普通请求。
 * **图像输入输出链路优化**：修图命令会优先复用当前消息或引用消息中的图片，并尽量转成 `data:image/...;base64,...` 传给图像接口；`neko.生图` 在检测到当前图像节点支持编辑且消息里有图片时，会把图片作为参考图传入。输出优先读取 `b64_json`，必要时回退为 URL 下载后再转发给 QQ。
 * **图像命令可选参数**：
   - `neko.生图`：支持 `--count` / `--ratio` / `--resolution` / `--model` / `--node`
@@ -423,6 +424,7 @@ plugins:
 * 图像节点和聊天节点完全分离。`neko.模型列表` 不会显示生图/修图节点，图像相关请使用 `neko.图像模型列表`。
 * 当前内置的图像 provider 包括 `xai` 与 `openai`，两者都推荐使用 `generationUrl = /v1/images/generations`；支持编辑的节点还应配置 `editUrl = /v1/images/edits`。OpenAI `gpt-image-2` 节点可在 `supportsEdit: true` 时处理引用图，用户可直接引用带图消息后发送 `neko.生图 提示词` 做参考图生图。
 * 同一个图像节点可以配置 `generationUrls` / `editUrls` 作为备用接口 URL。主 URL 失败或响应里没有可用图片时，插件会继续尝试备用 URL；成功后完成提示会说明已改用备用 URL。
+* OpenAI 图像节点可选 `streamingEnabled: true`。开启后插件会给 `/v1/images/generations` 或 `/v1/images/edits` 传 `stream=true` 与 `partial_images=0~3`，解析最终 completed 事件里的图片；partial 只用于维持连接和日志进度，不会单独发到群里。建议保留 `streamingFallbackToNonStream: true`，兼容不支持 SSE 的中转站。
 * 输出链路会优先读取 `b64_json` 直接回传到 QQ；如果下游只返回 URL，插件会自动下载后再发送；如果 OpenAI Compatible 返回 Markdown 形式的 data URI 图片，也会自动提取发送。
 
 #### 独立人格管理指令（⚠️ 仅限主人可用）
