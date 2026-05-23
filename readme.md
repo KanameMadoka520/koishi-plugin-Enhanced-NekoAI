@@ -408,7 +408,7 @@ plugins:
 * `neko.图像模型列表 [页码]`：查看 `image_api_config.json` 里的独立图像节点列表。
 * `neko.图像模型搜索 <关键词> [页码]`：按备注 / 模型名 / 生成 URL / 修图 URL 搜索图像节点。
 * `neko.图像模型切换 <编号>`：切换当前默认图像节点，对应 `runtime_config.json` 的 `activeImageApiIndex`。
-* `neko.生图 <提示词>`：调用图像生成节点。支持 `--count`、`--ratio`、`--resolution`、`--model`、`--node`；当当前节点支持编辑且当前/引用消息带图时，会把图片作为参考图一起传入。
+* `neko.生图 <提示词>`：调用图像生成节点。支持 `--count`、`--ratio`、`--resolution`、`--model`、`--node`；`--count` 会拆成连续的单张请求，每张成功返回并发送后再自动发起下一张，避免部分中转站不支持单次 `n` 张返回；当当前节点支持编辑且当前/引用消息带图时，会把图片作为参考图一起传入。
 * `neko.画图 <提示词>`：`neko.生图` 的别名。
 * `neko.修图 <提示词>`：调用图像编辑节点。会优先复用当前消息或引用消息里的图片，支持 `--ratio`、`--resolution`、`--model`、`--node`。
 
