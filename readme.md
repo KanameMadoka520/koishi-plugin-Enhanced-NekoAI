@@ -535,3 +535,11 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
+
+### 调用失败提示的隐私保护
+
+聊天、生图和修图调用失败时，聊天中仅展示固定错误类型与模型名，不展示节点备注、接口地址或上游原始报错。模型字段包含网址等异常内容时显示“未知模型”；路由耗尽时使用最后尝试的模型。详细诊断仍保留在本地后台日志中，请勿将日志直接公开。
+
+`sendFailureNotice: false` 仍可关闭聊天失败提示；旧 `failureNoticeDetailMode` 和 `generationFailedText` 不再影响调用失败输出，以避免旧配置重新暴露接口信息。此规则不修改正常模型回答、管理命令或历史消息。
+
+回归验证：`node --test test/chat-error.test.cjs`。
