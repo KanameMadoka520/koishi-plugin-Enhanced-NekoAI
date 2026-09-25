@@ -538,8 +538,8 @@ limitations under the License.
 
 ### 调用失败提示的隐私保护
 
-聊天、生图和修图调用失败时，聊天中仅展示固定错误类型与模型名，不展示节点备注、接口地址或上游原始报错。模型字段包含网址等异常内容时显示“未知模型”；路由耗尽时使用最后尝试的模型。详细诊断仍保留在本地后台日志中，请勿将日志直接公开。
+聊天、生图和修图保留上游英文错误原文、状态码以及图像路由节点数量、失败路径、回退和连续生成进度，仅替换具体网址、域名/IP、配置中的节点备注与密钥。节点编号和模型名继续显示，后台日志保留诊断信息。
 
-`sendFailureNotice: false` 仍可关闭聊天失败提示；旧 `failureNoticeDetailMode` 和 `generationFailedText` 不再影响调用失败输出，以避免旧配置重新暴露接口信息。此规则不修改正常模型回答、管理命令或历史消息。
+`sendFailureNotice: false` 仍可关闭聊天失败提示；开启后保留原始错误详情，旧 `failureNoticeDetailMode` 不再压缩或改写报错。`generationFailedText` 仍作为末尾提示，发送前同样脱敏。正常模型回答和媒体附件不经过此错误脱敏器。
 
 回归验证：`node --test test/chat-error.test.cjs`。

@@ -2,58 +2,62 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
-const { formatCallFailure, safeModelName } = require('../lib/chat-error');
-test('错误正文、节点名、URL 和密钥都不能进入聊天', () => {
-  for (const message of ['secret-node https://api.example.com/v1?key=sk-secret', 'http://127.0.0.1:8080 private-node', '<img src="https://secret.example"/>', 'https%3A%2F%2Fsecret.example', 'Bearer secret-token']) {
-    assert.equal(formatCallFailure(new Error(message), 'gpt-4.1'), '错误类型：调用失败\n模型：gpt-4.1');
-  }
+const { redactForChat, rawErrorText } = require('../lib/chat-error');
+const nodes = [{ remark: '站点甲(vip)+', apiUrl: 'https://private.example/v1', apiKey: 'secret-token', modelName: 'gpt-4.1' }, { remark: '站点乙', modelName: 'gpt-image-2' }];
+test('原始英文、换行、状态码和模型保留，只隐藏来源', () => {
+ const text = '节点 #2 站点甲(vip)+ · gpt-4.1\nHTTP 429: Too Many Requests\nRequest failed at https://private.example/v1';
+ assert.equal(redactForChat(text, nodes), '节点 #2 [节点备注已隐藏] · gpt-4.1\nHTTP 429: Too Many Requests\nRequest failed at [网址已隐藏]');
 });
-test('按结构化状态码分类，网络超时不回显错误', () => {
-  assert.match(formatCallFailure({ response: { status: 429 }, message: 'https://secret.example' }, 'provider/model'), /请求限流或额度不足（HTTP 429）/);
-  assert.match(formatCallFailure({ code: 'ETIMEDOUT' }, 'gpt-4.1'), /请求超时/);
-  assert.match(formatCallFailure({ code: 'ECONNRESET' }, 'gpt-4.1'), /网络连接失败/);
+test('网址、裸域名、IPv4/IPv6 和密钥不泄露', () => {
+ for (const text of ['https://other.example/path?token=abc', 'http:\\/\\/other.example/path', 'https%3A%2F%2Fother.example%2Fpath', '//other.example/path', 'other.example:8080', '192.0.2.1:443', '[2001:db8::1]:443', 'Bearer secret-token', 'sk-test-key']) {
+   const output = redactForChat(text, nodes);
+   assert.doesNotMatch(output, /other\.example|192\.0\.2\.1|2001:db8|secret-token|sk-test-key|https?:/i);
+ }
 });
-test('模型字段中的网址、IP、标签和密钥也不允许输出', () => {
-  for (const model of ['https://secret.example/x', 'secret.example/model', '127.0.0.1/model', '//localhost/x', '<b>test</b>', 'sk-secret', 'gpt https://x.test']) assert.equal(safeModelName(model), '未知模型');
-  for (const model of ['gpt-4.1', 'claude-sonnet-4-5', 'provider/model', 'gemini-2.5-pro']) assert.equal(safeModelName(model), model);
+test('不翻译不截断普通错误，也不破坏模型名称', () => {
+ const text = 'ECONNRESET socket hang up\nInvalid image size: 1024x1024\n' + 'upstream detail '.repeat(80);
+ assert.equal(redactForChat(text, nodes), text);
+ for (const model of ['gpt-4.1', 'gemini-2.5-pro', 'provider/claude-sonnet-4-5']) assert.equal(redactForChat(model, nodes), model);
 });
-test('实际聊天失败出口忽略原始 reply 和旧 full 详细提示设置', () => {
-  const source = fs.readFileSync(require.resolve('../lib/listener'), 'utf8');
-  const body = source.slice(source.indexOf('function buildGenerationFailedMessage('), source.indexOf('async function sendAiResultToChat'));
-  for (const detailMode of ['full', 'brief', 'off']) {
-    const context = { formatCallFailure, getFailureNoticeConfig: () => ({ enabled: true, detailMode, retryText: 'https://secret.example' }) };
-    vm.createContext(context); vm.runInContext(body, context);
-    assert.equal(context.buildGenerationFailedMessage({ reply: 'private-node https://secret.example', error: { response: { status: 401 } }, apiInfo: { remark: 'private-node', modelName: 'gpt-4.1' } }), '❌ 错误类型：身份验证失败（HTTP 401）\n模型：gpt-4.1');
-    context.getFailureNoticeConfig = () => ({ enabled: false });
-    assert.equal(context.buildGenerationFailedMessage({}), '');
-  }
+test('读取原始错误和响应正文，不用固定中文类型替换', () => {
+ const result = rawErrorText({ code: 'ETIMEDOUT', message: 'Request timed out', response: { status: 504, data: { error: { message: 'Gateway Timeout' } } } });
+ assert.equal(result, 'HTTP 504\nETIMEDOUT\nRequest timed out\nGateway Timeout');
 });
-
-test('图像路由耗尽保留最后失败模型和状态，不暴露路由列表', async () => {
- const source = fs.readFileSync(require.resolve('../lib/commands'), 'utf8');
- const body = source.slice(source.indexOf('async function generateImagesWithRoute('), source.indexOf('async function collectXaiEditImages('));
- const context = { cloneImageRouteOptions: x => x, buildImageNodeLabel: n => n.remark, logger: { info() {}, warn() {} }, generateImages: async (ctx, node) => { throw Object.assign(new Error('https://secret.example ' + node.remark), { response: { status: 503 } }); } };
+test('实际聊天出口保留英文并脱敏自定义尾部文本', () => {
+ const source = fs.readFileSync(require.resolve('../lib/listener'), 'utf8');
+ const body = source.slice(source.indexOf('function buildGenerationFailedMessage('), source.indexOf('async function sendAiResultToChat'));
+ const context = { redactForChat, rawErrorText, state: { apiList: nodes }, getFailureNoticeConfig: () => ({ enabled: true, retryText: '请重试 https://private.example/v1' }) };
  vm.createContext(context); vm.runInContext(body, context);
- await assert.rejects(context.generateImagesWithRoute({}, { route: [{ index: 0, apiNode: { modelName: 'first', remark: 'secret-one' } }, { index: 1, apiNode: { modelName: 'last', remark: 'secret-two' } }] }, 'hello'), error => {
-   assert.equal(formatCallFailure(error, error.modelName), '错误类型：上游服务错误（HTTP 503）\n模型：last'); return true;
+ const result = context.buildGenerationFailedMessage({ error: { response: { status: 401 }, message: 'Unauthorized: Invalid API key at https://private.example/v1' }, apiInfo: { nodeIndex: 2, remark: nodes[0].remark, modelName: 'gpt-4.1' } });
+ assert.match(result, /节点 #2 · gpt-4\.1/);
+ assert.match(result, /HTTP 401\nUnauthorized: Invalid API key at \[网址已隐藏\]/);
+ assert.doesNotMatch(result, /private\.example|站点甲/);
+ context.getFailureNoticeConfig = () => ({ enabled: false });
+ assert.equal(context.buildGenerationFailedMessage({}), '');
+});
+test('实际图像路由恢复完整失败路径与各节点原始英文', async () => {
+ const source = fs.readFileSync(require.resolve('../lib/commands'), 'utf8');
+ const formatter = source.slice(source.indexOf('function buildImageRouteFailureMessage('), source.indexOf('function filterSendableGeneratedImages('));
+ const body = source.slice(source.indexOf('async function generateImagesWithRoute('), source.indexOf('async function collectXaiEditImages('));
+ const context = { cloneImageRouteOptions: x => x, buildImageNodeLabel: (n, i) => '#' + i + ' ' + n.remark, getDefaultImageModelName: () => 'default', logger: { info() {}, warn() {} }, generateImages: async (ctx, node) => { throw new Error(node.modelName === 'gpt-4.1' ? 'HTTP 429: Too Many Requests at https://private.example/v1' : 'HTTP 503: Service Unavailable'); } };
+ vm.createContext(context); vm.runInContext(formatter + body, context);
+ await assert.rejects(context.generateImagesWithRoute({}, { route: nodes.map((apiNode, index) => ({ apiNode, index })) }, 'hello'), error => {
+   const output = redactForChat(error.message, nodes);
+   assert.match(output, /图像路由集群全部 2 个节点均失败/);
+   assert.match(output, /失败路径：#0 \[节点备注已隐藏\] · gpt-4\.1: HTTP 429: Too Many Requests/);
+   assert.match(output, /#1 \[节点备注已隐藏\] · gpt-image-2: HTTP 503: Service Unavailable/);
+   assert.doesNotMatch(output, /private\.example|站点甲|站点乙/);
+   return true;
  });
 });
-
-test('聊天路由耗尽使用最后尝试模型，保留结构化错误类型', async () => {
- const source = fs.readFileSync(require.resolve('../lib/api'), 'utf8');
- const body = source.slice(source.indexOf('async function getAiReply('), source.indexOf('module.exports ='));
- const context = {
-   state: { runtimeConfig: {}, apiList: [{ modelName: 'first', remark: 'secret-one' }, { modelName: 'last', remark: 'secret-two' }] },
-   getSmartRouter: () => ({ enabled: true, retryCount: 1, sameNodeRetryCount: 0, retryDelay: 0 }),
-   readNonNegativeInteger: (x, fallback) => Number.isInteger(x) ? x : fallback,
-   selectNextNode: () => 1, resolveAiType: () => 'openai',
-   logger: { debug() {}, info() {}, warn() {}, error() {} },
-   enqueue: fn => fn(), QueueOverflowError: class extends Error {},
-   callApiOnce: async () => { throw Object.assign(new Error('secret-node https://private.example'), { response: { status: 503 } }); },
-   extractApiErrorMessage: e => e?.message, isRetryableError: () => true,
- };
+test('实际图像发送边界脱敏，保留连续生成进度', async () => {
+ const source = fs.readFileSync(require.resolve('../lib/commands'), 'utf8');
+ const body = source.slice(source.indexOf('async function sendAutoRecallImageNotice('), source.indexOf('function canUseImageCommand('));
+ const context = { redactForChat, state: { imageApiList: nodes }, IMAGE_NOTICE_RECALL_MS: 30000, scheduleImageNoticeRecall() {} };
  vm.createContext(context); vm.runInContext(body, context);
- const result = await context.getAiReply({ http: {} }, ['hi'], '', []);
- assert.equal(result.apiInfo.modelName, 'last');
- assert.equal(formatCallFailure(result.error, result.apiInfo.modelName), '错误类型：上游服务错误（HTTP 503）\n模型：last');
+ let sent;
+ await context.sendAutoRecallImageNotice({ send: async text => { sent = text; return ['1']; } }, '连续生图中断：已成功生成 2/3 张\n失败路径：#2 站点乙: HTTP 503 Service Unavailable https://private.example/v1');
+ assert.match(sent, /已成功生成 2\/3 张/);
+ assert.match(sent, /HTTP 503 Service Unavailable/);
+ assert.doesNotMatch(sent, /站点乙|private\.example/);
 });
